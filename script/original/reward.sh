@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
 #SBATCH --time=120:00:00                                   # The job will run for 3 hours
-#SBATCH -o ../../results/new_reward-%j.out  # Write the log on scratch
+#SBATCH -o ../../results/tests/new_reward-%j.out  # Write the log on scratch
 #SBATCH --constraint=80gb
 #SBATCH -c 3
 

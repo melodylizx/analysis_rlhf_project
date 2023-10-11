@@ -134,7 +134,8 @@ if __name__ == "__main__":
         bf16=False,
         learning_rate=1e-5,
         deepspeed=args.deepspeed_config,
-        save_total_limit=1,
+        save_total_limit=2,
+        load_best_model_at_end =True,
     )
     
     # Initialize the reward model from the (supervised) fine-tuned GPT-J

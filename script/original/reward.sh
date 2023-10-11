@@ -22,4 +22,4 @@ deepspeed ./reward_model/train_reward_model_gptj.py --chpt_path $SCRATCH/reward_
 
 
 
-#conda deactive
+#conda deactivate

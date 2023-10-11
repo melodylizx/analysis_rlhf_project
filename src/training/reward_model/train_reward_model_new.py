@@ -113,11 +113,9 @@ if __name__ == "__main__":
     training_args = TrainingArguments(
         #output_dir="rm_checkpoint/",
         output_dir=cmd_args.output,
-        num_train_epochs=1,
+        num_train_epochs=3,
         logging_steps=10,
         gradient_accumulation_steps=4,
-        #save_strategy="steps",
-        #evaluation_strategy="steps",
         #per_device_train_batch_size=1,
         per_device_train_batch_size=8,
         #per_device_eval_batch_size=1,

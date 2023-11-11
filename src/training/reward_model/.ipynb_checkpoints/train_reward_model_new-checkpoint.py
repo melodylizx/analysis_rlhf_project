@@ -95,7 +95,7 @@ if __name__ == "__main__":
     parser = deepspeed.add_config_arguments(parser)
 
     cmd_args = parser.parse_args()
-    random_seed = 3 
+    random_seed = 4 
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
     torch.backends.cudnn.deterministic = True
@@ -113,18 +113,18 @@ if __name__ == "__main__":
     training_args = TrainingArguments(
         #output_dir="rm_checkpoint/",
         output_dir=cmd_args.output,
-        num_train_epochs=1,
+        num_train_epochs=2,
         logging_steps=10,
         gradient_accumulation_steps=4,
-        #save_strategy="steps",
-        #evaluation_strategy="steps",
+        save_strategy="steps",
+        evaluation_strategy="steps",
         #per_device_train_batch_size=1,
         per_device_train_batch_size=8,
         #per_device_eval_batch_size=1,
         per_device_eval_batch_size=8,
         eval_accumulation_steps=1,
-        eval_steps=30,
-        save_steps=30,
+        eval_steps=500,
+        save_steps=500,
         warmup_steps=100,
         logging_dir="./logs",
         fp16=True,
@@ -133,9 +133,7 @@ if __name__ == "__main__":
         deepspeed="/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/reward_model/ds_config_gpt_j.json",
         #save_total_limit=1,
         save_total_limit = 2,
-        save_strategy = "steps",
-        evaluation_strategy="steps",
-        load_best_model_at_end=False
+        load_best_model_at_end=True
     )
     
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
@@ -158,7 +156,8 @@ if __name__ == "__main__":
     # Create the comparisons datasets
     data_path = cmd_args.path
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path, "validation")
+    #val_pairs = create_comparison_dataset(data_path, "test")
+    val_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
 
     # Make pairwise datasets for training
     max_length = 550
@@ -177,5 +176,14 @@ if __name__ == "__main__":
         data_collator=data_collator,
     )
     trainer.train()
-    #trainer.save_model(model_checkpoint_path)
+    
+    # Identify the best checkpoint
+    #best_checkpoint_path = trainer.state.best_model_checkpoint
+
+    # Rename the best checkpoint to "best_checkpoint"
+    #best_checkpoint_new_path = os.path.join(os.path.dirname(best_checkpoint_path), "best_checkpoint")
+    #os.rename(best_checkpoint_path, best_checkpoint_new_path)
+    
+    #trainer.save_model(cmd_args.output)
+    #print(trainer.state.best_model_checkpoint)
     

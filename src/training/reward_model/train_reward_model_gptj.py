@@ -1,11 +1,27 @@
 import os
-
+import deepspeed
 import torch
 from datasets import load_dataset
 from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer, Trainer, TrainingArguments
+import argparse
+import pdb
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Analysis")
+    parser.add_argument('--local_rank', type=int, default=-1,
+                        help='local rank passed from distributed launcher')
+    parser.add_argument("--chpt_path",
+                        type=str,
+                        required=True,
+                        help="path of the checkpoint")
+    parser = deepspeed.add_config_arguments(parser)
+    args = parser.parse_args()
+    return args
 
 
 def create_comparison_dataset(path="CarperAI/openai_summarize_comparisons", split="train"):
@@ -87,17 +103,18 @@ def compute_metrics(eval_preds):
 
 
 if __name__ == "__main__":
+    args = parse_args()
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     #tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
     #if not os.path.exists("rm_checkpoint"):
         #os.mkdir("rm_checkpoint")
-    if not os.path.exists("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint"):
-         os.mkdir("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint")
+    if not os.path.exists(args.chpt_path):
+         os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         #output_dir="rm_checkpoint/",
-        output_dir="/network/scratch/z/zixuan.li/reward_model/rm_checkpoint",
+        output_dir=args.chpt_path,
         #num_train_epochs=5,
         num_train_epochs=3,
         logging_steps=10,
@@ -116,8 +133,9 @@ if __name__ == "__main__":
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
-        deepspeed="/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/reward_model/ds_config_gpt_j.json",
-        save_total_limit=1,
+        deepspeed=args.deepspeed_config,
+        save_total_limit=2,
+        load_best_model_at_end =True,
     )
     
     # Initialize the reward model from the (supervised) fine-tuned GPT-J

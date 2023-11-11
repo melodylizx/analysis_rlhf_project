@@ -13,10 +13,10 @@
 module --quiet load anaconda/3
 conda init
 # 2. Load your environment
-conda activate "sum"
+conda activate "rlhf"
 
 
-cd /home/mila/z/zixuan.li/trlx/examples/summarize_rlhf
+cd ../../src/training/
 accelerate launch --config_file configs/default_accelerate_config.yaml new_ppo.py --ckpt_path="/network/scratch/z/zixuan.li/reward_model/rm_checkpoint/checkpoint-4000/pytorch_model.bin" --save_path="/network/scratch/z/zixuan.li/ppo_388"
 #cd /home/mila/z/zixuan.li/trlx
 #deepspeed examples/summarize_rlhf/trlx_gptj_text_summarization.py

@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
 #SBATCH --time=120:00:00                                   # The job will run for 3 hours
-#SBATCH -o /home/mila/z/zixuan.li/output/new_reward-%j.out  # Write the log on scratch
+#SBATCH -o ../../results/tests/new_reward-%j.out  # Write the log on scratch
 #SBATCH --constraint=80gb
 #SBATCH -c 3
 
@@ -15,11 +15,11 @@ module --quiet load anaconda/3
 conda init
 
 # 2. Load your environment
-conda activate "sum"
+conda activate "rlhf"
 
-cd /home/mila/z/zixuan.li/trlx
-deepspeed examples/summarize_rlhf/reward_model/train_reward_model_gptj.py
+cd ../../src/training/
+deepspeed ./reward_model/train_reward_model_gptj.py --chpt_path $SCRATCH/reward_model --deepspeed --deepspeed_config ./reward_model/ds_config_gpt_j.json
 
 
 
-#conda deactive
+#conda deactivate

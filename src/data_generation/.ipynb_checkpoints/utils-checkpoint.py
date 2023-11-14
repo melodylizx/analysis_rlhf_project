@@ -30,6 +30,34 @@ def filter_comparisons(comparisons_ds, comparisons_filtered, summary_t2id, filte
 # post content, summary, accuracy, coverage, coherence
 # extract the summary pairs that have the aspects scores
 # summary 1, summary 2, preference score that have accuracy, coverage, coherence
+import pandas as pd
+
+def create_post2summaries_comp(comp):
+    comp_df = pd.DataFrame(comp)
+
+    info_df = pd.json_normalize(comp_df['info'])
+    comparison_df = pd.json_normalize(comp_df['comparison'])
+
+    comp_df = pd.concat([comp_df.drop(['info'], axis=1), info_df], axis=1)
+    comp_df = pd.concat([comp_df.drop(['comparison'], axis=1), comparison_df], axis=1)
+
+    repeated_comparisons = comp_df.shape[0] - len(comp_df.text.unique())
+    summary_text2id = dict(zip(comp_df.text.unique(), range(len(comp_df.text.unique()))))
+    comp_df["summary_id"] = comp_df["text"].map(summary_text2id)
+
+    comp_list = ['comparison.overall', 'comparison.aspect1', 'comparison.aspect2', 'comparison.aspect3']
+    comp_list.extend(["summary_id", "text", "worker"])
+
+    unique_post_ids = comp_df.id.unique()
+    post2comparisons = {}
+    for post_id in unique_post_ids:
+        comparisons_post_id = comp_df[comp_df['id'] == post_id]
+        comparison_dict = comparisons_post_id[comp_list].to_dict('index')
+        post2comparisons[post_id] = list(comparison_dict.values())
+
+    return post2comparisons, summary_text2id, repeated_comparisons
+
+
 def create_post2summaries_ratings(axis):
     axis_df = pd.DataFrame(axis)
     info_df = pd.json_normalize(axis_df['info'])

@@ -10,18 +10,31 @@ def create_post2comparisons(comparisons_ds):
     info_df = pd.json_normalize(comparisons_df['info'])
     summary_df = pd.json_normalize(comparisons_df['summaries'])
 
-def filter_comparisons(comparisons_ds, comparisons_filtered, summary_t2id, filtered_ids):
-    for comparison in comparisons_ds:
-        post_id = comparison['info']["id"]
-        summary_texts = [comparison['summaries'][i]["text"] for i in range(2)]
-        ids = [summary_t2id.get(text, -1) for text in summary_texts]
-
-        if all(id != -1 for id in ids):
-            filtered_ids.extend(ids)
-            comp_dict = {'id_0': ids[0], 'id_1': ids[1], **{f"summary_text_{i}": text for i, text in enumerate(summary_texts)},
-                         "worker_choice": comparison['choice'], "worker_id": comparison['worker']}
-            
-            comparisons_filtered[post_id] = comparisons_filtered.get(post_id, []) + [comp_dict]
+def filter_comparisons(comparisons_ds, comparisons_filtered,summary_t2id,filtered_ids):
+    for i in range(len(comparisons_ds)):
+        post_id = comparisons_ds[i]['info']["id"]
+        summary_text_0 = comparisons_ds[i]['summaries'][0]["text"]
+        summary_text_1 = comparisons_ds[i]['summaries'][1]["text"]
+        id_0, id_1 = -1, -1
+        if summary_text_0 in summary_t2id:
+            id_0 = summary_t2id[summary_text_0]
+        if summary_text_1 in summary_t2id:
+            id_1 = summary_t2id[summary_text_1]
+        worker_choice = comparisons_ds[i]['choice']
+        worker_id = comparisons_ds[i]['worker']
+        if (id_0 != -1) and (id_1 != -1):
+            filtered_ids.append(id_0)
+            filtered_ids.append(id_1)
+            comp_dict = {'id_0': id_0,
+                         'id_1': id_1,
+                         'summary_text_0': summary_text_0,
+                         "summary_text_1": summary_text_1,
+                         "worker_choice": worker_choice,
+                         "worker_id": worker_id}
+            if post_id in comparisons_filtered:
+                comparisons_filtered[post_id].append(comp_dict)
+            else:
+                comparisons_filtered[post_id] = [comp_dict]
     return comparisons_filtered, filtered_ids
 
 # used for the validation set

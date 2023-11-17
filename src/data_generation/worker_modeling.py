@@ -1,3 +1,5 @@
+import random
+import pandas as pd
 class Worker:
     def __init__(self, id, reliability):
         self.id = id
@@ -10,6 +12,17 @@ class Summary:
         self.accuracy = accuracy
         self.coverage = coverage
         self.coherence = coherence
+
+
+def fixed_reliability(reliability, comp_original_df):
+    comp_df = comp_original_df.copy()
+    # Sample reliability % of the DataFrame
+    sampled_df = comp_df['choice'].sample(frac=1-reliability, random_state=1)
+    # Invert the values in the 'binary_column'
+    sampled_df = sampled_df.replace({0: 1, 1: 0})
+    # Update the original DataFrame with the sampled and inverted values
+    comp_df['choice'].update(sampled_df)
+    return comp_df
 
 
 def assign_answer(reliability, num_comparisons):
@@ -85,10 +98,10 @@ def get_new_comp_labels_df(match_df, worker):
     return worker_unassigned_summaries
 
 
-def match_id_with_eval(summary_id, cirteria):
+def match_id_with_eval(summary_id, cirteria, unique_eval):
    #used to find the specific evaluation score for a summary
    matched_element = unique_eval.loc[unique_eval["summary_id"] == summary_id, cirteria]
-       return matched_element
+   return matched_element
 
 def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability, num_comaprisons,  comparisons_per_worker ,comparison_ds):
     worker_comp_id_list = randomly_assign_workers(total_num_workers, num_generated ,num_comaprisons, comparisons_per_worker)

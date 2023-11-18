@@ -1,3 +1,5 @@
+import random
+import pandas as pd
 class Worker:
     def __init__(self, id, reliability):
         self.id = id
@@ -11,6 +13,16 @@ class Summary:
         self.coverage = coverage
         self.coherence = coherence
 
+def fixed_reliability(reliability, comp_original_df):
+    comp_df = comp_original_df.copy()
+    # Sample reliability % of the DataFrame
+    sampled_df = comp_df['choice'].sample(frac=1-reliability, random_state=1)
+    # Invert the values in the 'binary_column'
+    sampled_df = sampled_df.replace({0: 1, 1: 0})
+    # Update the original DataFrame with the sampled and inverted values
+    comp_df['worker_label']= comp_df['choice']
+    comp_df['worker_label'].update(sampled_df)
+    return comp_df
 
 def assign_answer(reliability, num_comparisons):
     if num_comparisons == 1:
@@ -24,7 +36,6 @@ def assign_answer(reliability, num_comparisons):
     random.shuffle(answers)
 
     return answers
-
 
 def assign_labels(worker ,ground_truth_labels):
 
@@ -72,11 +83,11 @@ def get_new_comp_labels_df(match_df, worker):
     worker_unassigned_summaries = match_df.loc[match_df['assigned']==False]
 
     # Assign labels to these unassigned summaries
-    ground_truth_labels = worker_unassigned_summaries['worker_choice'].tolist()
+    ground_truth_labels = worker_unassigned_summaries['choice'].tolist()
     labels = assign_labels(worker, ground_truth_labels)
 
     # Update the DataFrame with generated labels and mark them as assigned
-    worker_unassigned_summaries['generated_label'] = labels
+    worker_unassigned_summaries['worker_label'] = labels
     worker_unassigned_summaries['assigned'] = True
 
     # Update the original DataFrame
@@ -84,17 +95,11 @@ def get_new_comp_labels_df(match_df, worker):
 
     return worker_unassigned_summaries
 
-
-def match_id_with_eval(summary_id, cirteria):
-   #used to find the specific evaluation score for a summary
-   matched_element = unique_eval.loc[unique_eval["summary_id"] == summary_id, cirteria]
-       return matched_element
-
 def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability, num_comaprisons,  comparisons_per_worker ,comparison_ds):
+    comparison_ds_copy = comparison_ds.copy()
     worker_comp_id_list = randomly_assign_workers(total_num_workers, num_generated ,num_comaprisons, comparisons_per_worker)
-    match_df = match_worker_with_summary(num_generated, worker_comp_id_list, comparison_ds)
+    match_df = match_worker_with_summary(num_generated, worker_comp_id_list, comparison_ds_copy)
     generated_df = pd.DataFrame()
-    matching_rows = pd.DataFrame()
 
     for worker_id in set(worker_comp_id_list):
         if reliability == "low":
@@ -137,11 +142,15 @@ def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability,
 
     return generated_df
 
-def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, bias_towards_0, bias_towards_1):
+def match_id_with_eval(summary_id, cirteria, unique_eval):
+    filtered_data =unique_eval[unique_eval['summary_id'] == summary_id]
+       return filtered_data[cirteria].values[0]
+
+def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, bias_towards_0, bias_towards_1,unique_eval ):
     if bias_accuracy:
         for i in range(len(comp_df_input)):
-            accuracy_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "accuracy"))
-            accuracy_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "accuracy"))
+            accuracy_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "accuracy",unique_eval))
+            accuracy_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "accuracy",unique_eval))
             if accuracy_0 > accuracy_1:
                 comp_df_input.loc[i, "worker_label"] = 0
             elif accuracy_0 < accuracy_1:
@@ -149,17 +158,17 @@ def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, 
 
     if bias_coverage:
         for i in range(len(comp_df_input)):
-            coverage_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coverage"))
-            coverage_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coverage"))
+            coverage_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coverage",unique_eval))
+            coverage_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coverage",unique_eval))
             if coverage_0 > coverage_1:
-                comp_df_input.loc[i, "generated_label"] = 0
+                comp_df_input.loc[i, "worker_label"] = 0
             elif coverage_0 < coverage_1:
                 comp_df_input.loc[i, "worker_label"] = 1
 
     if bias_coherence:
         for i in range(len(comp_df_input)):
-            coherence_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coherence"))
-            coherence_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coherence"))
+            coherence_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coherence",unique_eval))
+            coherence_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coherence",unique_eval))
             if coherence_0 > coherence_1:
                 comp_df_input.loc[i, "worker_label"] = 0
             elif coherence_0 < coherence_1:
@@ -174,7 +183,6 @@ def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, 
                comp_df_input.loc[i, "worker_label"] = 1
 
 
-
     return comp_df_input
 
 def get_chosen_and_rejected(row):
@@ -183,95 +191,20 @@ def get_chosen_and_rejected(row):
     return row[f'summary_text_{chosen_idx}'], row[f'summary_text_{rejected_idx}']
 
 def to_parquet(generated_df, split, title):
-  #to the format for training
-  generated_df['prompt'] = generated_df['post_id'].map(full_post_map)
-  generated_df['chosen'], generated_df['rejected'] = zip(*generated_df.apply(get_chosen_and_rejected, axis=1))
-  output_df = generated_df[['prompt', 'chosen', 'rejected']]
-  output_df['prompt'] = "POST: " + output_df['prompt']
-  output_df['chosen'] = "TL;DR: " + output_df['chosen']
-  output_df['rejected'] = "TL;DR: " + output_df['rejected']
-  # output_df.to_parquet(split+ "_" + title + '.parquet', engine='pyarrow')
-  output_df.to_parquet(split + "_" + title + '.parquet')
-  return output_df
+    # Create a copy of the dataframe to avoid modifying the input
+    output_df = generated_df.copy()
 
+    # Convert to the format for training
+    output_df['prompt'] = output_df['post']
+    output_df['chosen'], output_df['rejected'] = zip(*output_df.apply(get_chosen_and_rejected, axis=1))
+    output_df = output_df[['prompt', 'chosen', 'rejected']]
 
-def to_json_biased(generated_df, reliability, bias_type):
-  df_store = pd.DataFrame()
+    # Add prefixes to the prompt, chosen, and rejected columns
+    output_df['prompt'] = "POST: " + output_df['prompt']
+    output_df['chosen'] = "TL;DR: " + output_df['chosen']
+    output_df['rejected'] = "TL;DR: " + output_df['rejected']
 
-  for index, row in generated_df.iterrows():
+    # Save to parquet
+    output_df.to_parquet(split + "_" + title + '.parquet')
 
-    new_row_data = {
-      "info": {
-          "id": row["post_id"],
-          "post": post_map[row["post_id"]],
-          "title": None,
-          "subreddit": None
-      },
-      "split": "train",
-      "summaries": [
-          {
-              "text": row["summary_text_0"],
-              "policy": None,
-              "note": None,
-          },
-          {
-              "text": row["summary_text_1"],
-              "policy": None,
-              "note": None,
-          }
-      ],
-      "choice": row["worker_label"],
-      "worker": row["worker_id"],
-      "batch": "batch1",
-      "extra": {
-          "expert_label": row["expert_label"],
-          "reliability": reliability,
-          "bias": bias_type
-      }
-    }
-
-    df_store = df_store.append(new_row_data, ignore_index=True)
-    #df_store = pd.concat([df_store, pd.DataFrame(new_row_data, index=[0])], ignore_index=True)
-    file_path = bias_type + ".json"
-    df_store.to_json(file_path, orient="records", lines=True)
-    return df_store
-
-def to_json(generated_df, reliability):
-  df_store = pd.DataFrame()
-
-  for index, row in generated_df.iterrows():
-
-    new_row_data = {
-      "info": {
-          "id": row["post_id"],
-          "post": post_map[row["post_id"]],
-          "title": None,
-          "subreddit": None
-      },
-      "split": "train",
-      "summaries": [
-          {
-              "text": row["summary_text_0"],
-              "policy": None,
-              "note": None,
-          },
-          {
-              "text": row["summary_text_1"],
-              "policy": None,
-              "note": None,
-          }
-      ],
-      "choice": row["worker_label"],
-      "worker": row["worker_id"],
-      "batch": "batch1",
-      "extra": {
-          "expert_label": row["expert_label"],
-          "reliability": reliability
-
-      }
-    }
-
-    df_store = df_store.append(new_row_data, ignore_index=True)
-    #df_store = pd.concat([df_store, pd.DataFrame(new_row_data, index=[0])], ignore_index=True)
-  file_path = "240k_"+ reliability + ".json"
-  df_store.to_json(file_path, orient="records", lines=True)
+    return output_df

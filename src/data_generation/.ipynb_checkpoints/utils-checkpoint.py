@@ -1,4 +1,5 @@
 import pandas as pd
+import pdb
 
 def create_dict_comparision(comparisons):
     comparisons_df = pd.DataFrame(comparisons["info"])
@@ -10,19 +11,22 @@ def create_post2comparisons(comparisons_ds):
     info_df = pd.json_normalize(comparisons_df['info'])
     summary_df = pd.json_normalize(comparisons_df['summaries'])
 
-def filter_comparisons(comparisons_ds, comparisons_filtered, summary_t2id, filtered_ids):
-    for comparison in comparisons_ds:
-        post_id = comparison['info']["id"]
-        summary_texts = [comparison['summaries'][i]["text"] for i in range(2)]
-        ids = [summary_t2id.get(text, -1) for text in summary_texts]
+def process_comparisons_df(comparisons_ds,summary_text2id):
+    comparisons_ds_df = pd.DataFrame(comparisons_ds)
+    comparisons_ds_df['summary_text_0'] = comparisons_ds_df.summaries.map(lambda x: x[0]['text'])
+    comparisons_ds_df['summary_text_1'] = comparisons_ds_df.summaries.map(lambda x: x[1]['text'])
+    comparisons_ds_df['id_0'] = comparisons_ds_df.summaries.map(lambda x: summary_text2id[x[0]['text']] if x[0]['text'] in summary_text2id else -1)
+    comparisons_ds_df['id_1'] = comparisons_ds_df.summaries.map(lambda x: summary_text2id[x[1]['text']] if x[1]['text'] in summary_text2id else -1)
+    comparisons_ds_df = comparisons_ds_df.drop(['summaries'], axis=1)
+    comparisons_ds_df_first = comparisons_ds_df[comparisons_ds_df['id_0']!=-1]
+    process_val_df = comparisons_ds_df_first[comparisons_ds_df_first['id_1']!=-1]
+    process_val_df = process_val_df.reset_index(drop=True)
+    info_df = pd.json_normalize(process_val_df['info'])
+    process_val_df = pd.concat([process_val_df.drop(['info'], axis=1), info_df], axis=1)
+    columns_list = ['choice', 'worker', 'summary_text_0',
+                    'summary_text_1', 'id_0', 'id_1', 'id', 'post']
+    return process_val_df[columns_list]
 
-        if all(id != -1 for id in ids):
-            filtered_ids.extend(ids)
-            comp_dict = {'id_0': ids[0], 'id_1': ids[1], **{f"summary_text_{i}": text for i, text in enumerate(summary_texts)},
-                         "worker_choice": comparison['choice'], "worker_id": comparison['worker']}
-            
-            comparisons_filtered[post_id] = comparisons_filtered.get(post_id, []) + [comp_dict]
-    return comparisons_filtered, filtered_ids
 
 # used for the validation set
 # initially you have
@@ -30,104 +34,37 @@ def filter_comparisons(comparisons_ds, comparisons_filtered, summary_t2id, filte
 # post content, summary, accuracy, coverage, coherence
 # extract the summary pairs that have the aspects scores
 # summary 1, summary 2, preference score that have accuracy, coverage, coherence
-import pandas as pd
-
-def create_post2summaries_comp(comp):
-    comp_df = pd.DataFrame(comp)
-
-    info_df = pd.json_normalize(comp_df['info'])
-    comparison_df = pd.json_normalize(comp_df['comparison'])
-
-    comp_df = pd.concat([comp_df.drop(['info'], axis=1), info_df], axis=1)
-    comp_df = pd.concat([comp_df.drop(['comparison'], axis=1), comparison_df], axis=1)
-
-    repeated_comparisons = comp_df.shape[0] - len(comp_df.text.unique())
-    summary_text2id = dict(zip(comp_df.text.unique(), range(len(comp_df.text.unique()))))
-    comp_df["summary_id"] = comp_df["text"].map(summary_text2id)
-
-    comp_list = ['comparison.overall', 'comparison.aspect1', 'comparison.aspect2', 'comparison.aspect3']
-    comp_list.extend(["summary_id", "text", "worker"])
-
-    unique_post_ids = comp_df.id.unique()
-    post2comparisons = {}
-    for post_id in unique_post_ids:
-        comparisons_post_id = comp_df[comp_df['id'] == post_id]
-        comparison_dict = comparisons_post_id[comp_list].to_dict('index')
-        post2comparisons[post_id] = list(comparison_dict.values())
-
-    return post2comparisons, summary_text2id, repeated_comparisons
 
 
 def create_post2summaries_ratings(axis):
-    axis_df = pd.DataFrame(axis)
-    info_df = pd.json_normalize(axis_df['info'])
-    summary_df = pd.json_normalize(axis_df['summary'])
-    axis_df = pd.concat([axis_df.drop(['info'], axis=1), info_df], axis=1)
-    axis_df = pd.concat([axis_df.drop(['summary'], axis=1), summary_df], axis=1)
-    repeated_summaries = axis_df.shape[0] - len(axis_df.text.unique())
-    summary_text2id = dict(zip(axis_df.text.unique(), range(len(axis_df.text.unique()))))
-    axis_df ["summary_id"] = axis_df["text"].map(summary_text2id)
-    axes_list = ['axes.overall', 'axes.accuracy',
-       'axes.coverage', 'axes.coherence', 'axes.compatible']
-    axes_list.extend(["summary_id","text","worker"])
-    unique_post_ids = axis_df.id.unique()
-    post2summaries = {}
-    for post_id in unique_post_ids:
-        summaries_post_id = axis_df[axis_df['id']==post_id]
-        axis_dict = summaries_post_id[axes_list].to_dict('index')
-        post2summaries[post_id] = list(axis_dict.values())
-    return post2summaries, summary_text2id, repeated_summaries
-
+    post2summaries_df = pd.DataFrame(axis)
+    info_df = pd.json_normalize(post2summaries_df['info'])
+    summary_df = pd.json_normalize(post2summaries_df['summary'])
+    post2summaries_df = pd.concat([post2summaries_df.drop(['info'], axis=1), info_df], axis=1)
+    post2summaries_df = pd.concat([post2summaries_df.drop(['summary'], axis=1), summary_df], axis=1)
+    repeated_summaries = post2summaries_df.shape[0] - len(post2summaries_df.text.unique())
+    summary_text2id = dict(zip(post2summaries_df.text.unique(), range(len(post2summaries_df.text.unique()))))
+    post2summaries_df ["summary_id"] = post2summaries_df["text"].map(summary_text2id)
+    axes_list = ['axes.overall', 'axes.accuracy', 'axes.coverage', 'axes.coherence']
+    rename_dict = {col: col.split('.', 1)[1] if 'axes.' in col else col for col in axes_list}
+    post2summaries_df.rename(columns=rename_dict, inplace=True)
+    list_columns = ["overall","accuracy","coverage","coherence","text","worker","id","summary_id"]
+    return post2summaries_df[list_columns], repeated_summaries, summary_text2id
 
 
 def update_summary_t2id(comparisons_ds, summary_t2id):
     complete_summary_t2id = summary_t2id.copy()
-    # Iterate over each row in the DataFrame
-    for i in range(len(comparisons_ds)):
-        summary_text_0 = comparisons_ds[i]['summaries'][0]["text"]
-        summary_text_1 = comparisons_ds[i]['summaries'][1]["text"]
+    comparisons_ds_df = pd.DataFrame(comparisons_ds)
 
-        # Check if summary_0 is not in the summary_t2id dictionary
-        if summary_text_0 not in complete_summary_t2id:
-            # Generate a new id for the summary
-            new_id = len(complete_summary_t2id) + 1
-            # Add the summary and its id to the summary_t2id dictionary
-            complete_summary_t2id[summary_text_0] = new_id
+    comparisons_ds_df['summary_text_0'] = comparisons_ds_df.summaries.map(lambda x: x[0]['text'])
+    comparisons_ds_df['summary_text_1'] = comparisons_ds_df.summaries.map(lambda x: x[1]['text'])
+    all_summaries = pd.concat([comparisons_ds_df['summary_text_0'],comparisons_ds_df['summary_text_1']] )
 
-        # Check if summary_1 is not in the summary_t2id dictionary
-        if summary_text_1 not in complete_summary_t2id:
-            # Generate a new id for the summary
-            new_id = len(complete_summary_t2id) + 1
-            # Add the summary and its id to the summary_t2id dictionary
-            complete_summary_t2id[summary_text_1] = new_id
+    # Create a set of unique summaries that are not already in complete_summary_t2id
+    unique_new_summaries = set(all_summaries) - set(complete_summary_t2id.keys())
 
-    # Return the updated summary_t2id dictionary
+    for summary in unique_new_summaries:
+        complete_summary_t2id[summary] = len(complete_summary_t2id) + 1
     return complete_summary_t2id
 
-def filter_biased_comp(comparisons_ds, comparisons_filtered_biased,summary_t2id,complete_summary_t2id,filtered_ids):
-    for i in range(len(comparisons_ds)):
-        post_id = comparisons_ds[i]['info']["id"]
-        summary_text_0 = comparisons_ds[i]['summaries'][0]["text"]
-        summary_text_1 = comparisons_ds[i]['summaries'][1]["text"]
-        #id_0, id_1 = -1, -1
-        if summary_text_0 in summary_t2id and summary_text_1 in summary_t2id:
-            id_0, id_1 = -1, -1
-        else:
-            id_0 = complete_summary_t2id[summary_text_0]
-            id_1 = complete_summary_t2id[summary_text_1]
-        worker_choice = comparisons_ds[i]['choice']
-        worker_id = comparisons_ds[i]['worker']
-        if (id_0 != -1) and (id_1 != -1):
-            filtered_ids.append(id_0)
-            filtered_ids.append(id_1)
-            comp_dict = {'id_0': id_0,
-                         'id_1': id_1,
-                         'summary_text_0': summary_text_0,
-                         "summary_text_1": summary_text_1,
-                         "worker_choice": worker_choice,
-                         "worker_id": worker_id}
-            if post_id in comparisons_filtered_biased:
-                comparisons_filtered_biased[post_id].append(comp_dict)
-            else:
-                comparisons_filtered_biased[post_id] = [comp_dict]
-    return comparisons_filtered_biased
+

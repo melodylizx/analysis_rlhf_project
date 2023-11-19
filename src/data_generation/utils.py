@@ -28,8 +28,6 @@ def process_comparisons_df(comparisons_ds,summary_text2id):
     return process_val_df[columns_list]
 
 
-
-
 # used for the validation set
 # initially you have
 # summary 1, summary 2, preference score

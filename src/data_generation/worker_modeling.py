@@ -1,5 +1,6 @@
 import random
 import pandas as pd
+
 class Worker:
     def __init__(self, id, reliability):
         self.id = id
@@ -37,7 +38,7 @@ def assign_answer(reliability, num_comparisons):
 
     return answers
 
-def assign_labels(worker ,ground_truth_labels):
+def get_labels(worker ,ground_truth_labels):
 
     num_labels = len(ground_truth_labels)
     #calls the assign_answer function to generate answers
@@ -65,7 +66,6 @@ def randomly_assign_workers(total_num_workers, num_generated, num_comparisons,co
 
     random.shuffle(worker_comp_id_list)  # Shuffle the list for random assignment
 
-
     return worker_comp_id_list
 
 def match_worker_with_summary(num_generated, worker_comp_id_list, comparison_ds):
@@ -84,7 +84,7 @@ def get_new_comp_labels_df(match_df, worker):
 
     # Assign labels to these unassigned summaries
     ground_truth_labels = worker_unassigned_summaries['choice'].tolist()
-    labels = assign_labels(worker, ground_truth_labels)
+    labels = get_labels(worker, ground_truth_labels)
 
     # Update the DataFrame with generated labels and mark them as assigned
     worker_unassigned_summaries['worker_label'] = labels
@@ -95,50 +95,43 @@ def get_new_comp_labels_df(match_df, worker):
 
     return worker_unassigned_summaries
 
-def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability, num_comaprisons,  comparisons_per_worker ,comparison_ds):
+def get_reliability_value(worker_id, total_num_workers, reliability):
+    if reliability == "extreme":
+        return 0  
+    elif reliability == "low":
+        return 0.2
+    elif reliability == "medium":
+        return 0.5
+    elif reliability == "high":
+        return 0.8
+    elif reliability == "half_low_half_high":
+        return 0.2 if worker_id < total_num_workers // 2 else 0.8
+    elif reliability == "quarter_reliabilities":
+        quarter_size = total_num_workers / 4
+        quarter_index = int(worker_id // quarter_size)
+        return [0.2, 0.4, 0.6, 0.8][quarter_index]
+    elif reliability == "perfect":
+        return 1.0
+    elif reliability == "random":
+        return random.uniform(0.0, 1.0)
+
+def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability, num_comaprisons, comparisons_per_worker, comparison_ds):
     comparison_ds_copy = comparison_ds.copy()
-    worker_comp_id_list = randomly_assign_workers(total_num_workers, num_generated ,num_comaprisons, comparisons_per_worker)
+
+    # Assign workers to comparisons randomly based on specified parameters
+    worker_comp_id_list = randomly_assign_workers(total_num_workers, num_generated, num_comaprisons, comparisons_per_worker)
+
+    # Match workers with summary information based on the assignment
     match_df = match_worker_with_summary(num_generated, worker_comp_id_list, comparison_ds_copy)
     generated_df = pd.DataFrame()
 
     for worker_id in set(worker_comp_id_list):
-        if reliability == "low":
-            worker = Worker(worker_id, 0.2)  # Set low reliability for all workers
-            matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "medium":
-            worker = Worker(worker_id, 0.5)  # Set 50% reliability for all workers
-            matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "high":
-            worker = Worker(worker_id, 0.8)  # Set 80% reliability for all workers
-            matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "half_low_half_high":
-            # Assign 20% reliability to half of the workers, and 80% reliability to the other half
-            if worker_id < total_num_workers // 2:
-                worker = Worker(worker_id, 0.2)
-                matching_rows = get_new_comp_labels_df(match_df, worker)
-            else:
-                worker = Worker(worker_id, 0.8)
-                matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "quarter_reliabilities":
-            # Assign different reliabilities to each 25% of workers
-            num_quarters = 4
-            reliability_options = [0.2, 0.4, 0.6, 0.8]
-            quarter_size = total_num_workers / num_quarters
-            quarter_index = int(worker_id // quarter_size)
-            worker = Worker(worker_id, reliability_options[quarter_index])
-            matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "perfect":
-            worker = Worker(worker_id, 1.0)  # Set perfect reliability for all workers
-            matching_rows = get_new_comp_labels_df(match_df, worker)
-        elif reliability == "random":
-            # Handle random scenarios here
-            rj = random.uniform(0.0, 1.0)
-            worker = Worker(worker_id, rj)
-            matching_rows = get_new_comp_labels_df(match_df, worker)
 
+        reliability_value = get_reliability_value(worker_id, total_num_workers, reliability)
+        worker = Worker(worker_id, reliability_value)
+        # Get the new comparison labels for the worker and match them with corresponding data
+        matching_rows = get_new_comp_labels_df(match_df, worker)
         generated_df = pd.concat([generated_df, matching_rows])
-        #comparison_ds = comparison_ds.drop('assigned', axis=1)
-        #generated_df = generated_df.drop('assigned', axis=1)
 
     return generated_df
 
@@ -146,42 +139,31 @@ def match_id_with_eval(summary_id, cirteria, unique_eval):
     filtered_data =unique_eval[unique_eval['summary_id'] == summary_id]
        return filtered_data[cirteria].values[0]
 
-def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, bias_towards_0, bias_towards_1,unique_eval ):
-    if bias_accuracy:
-        for i in range(len(comp_df_input)):
-            accuracy_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "accuracy",unique_eval))
-            accuracy_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "accuracy",unique_eval))
-            if accuracy_0 > accuracy_1:
-                comp_df_input.loc[i, "worker_label"] = 0
-            elif accuracy_0 < accuracy_1:
-                comp_df_input.loc[i, "worker_label"] = 1
+def compare_eval_metrics(row, metric, unique_eval):
+    metric_0 = float(match_id_with_eval(row["id_0"], metric, unique_eval))
+    metric_1 = float(match_id_with_eval(row["id_1"], metric, unique_eval))
+    if metric_0 > metric_1:
+        return 0
+    elif metric_0 < metric_1:
+        return 1
+    return None
 
-    if bias_coverage:
-        for i in range(len(comp_df_input)):
-            coverage_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coverage",unique_eval))
-            coverage_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coverage",unique_eval))
-            if coverage_0 > coverage_1:
-                comp_df_input.loc[i, "worker_label"] = 0
-            elif coverage_0 < coverage_1:
-                comp_df_input.loc[i, "worker_label"] = 1
-
-    if bias_coherence:
-        for i in range(len(comp_df_input)):
-            coherence_0 = float(match_id_with_eval(comp_df_input.loc[i, "id_0"], "coherence",unique_eval))
-            coherence_1 = float(match_id_with_eval(comp_df_input.loc[i, "id_1"], "coherence",unique_eval))
-            if coherence_0 > coherence_1:
-                comp_df_input.loc[i, "worker_label"] = 0
-            elif coherence_0 < coherence_1:
-                comp_df_input.loc[i, "worker_label"] = 1
-
+def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, bias_towards_0, bias_towards_1, unique_eval):
     if bias_towards_0:
-        for i in range(len(comp_df_input)):
-               comp_df_input.loc[i, "worker_label"] = 0
+        comp_df_input["worker_label"] = 0
+    elif bias_towards_1:
+        comp_df_input["worker_label"] = 1
+    else:
+        for index, row in comp_df_input.iterrows():
+            if bias_accuracy:
+                label = compare_eval_metrics(row, "accuracy", unique_eval)
+            elif bias_coverage:
+                label = compare_eval_metrics(row, "coverage", unique_eval)
+            elif bias_coherence:
+                label = compare_eval_metrics(row, "coherence", unique_eval)
 
-    if bias_towards_1:
-        for i in range(len(comp_df_input)):
-               comp_df_input.loc[i, "worker_label"] = 1
-
+            if label is not None:
+                comp_df_input.at[index, "worker_label"] = label
 
     return comp_df_input
 

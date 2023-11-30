@@ -9,6 +9,7 @@ import argparse
 import deepspeed
 import numpy as np
 
+
 def create_comparison_dataset(path, split="train"):
     dataset = load_dataset(path, split=split)
     pairs = []
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     parser = deepspeed.add_config_arguments(parser)
 
     cmd_args = parser.parse_args()
-    random_seed = 4 
+    random_seed = 0
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
     torch.backends.cudnn.deterministic = True
@@ -103,24 +104,24 @@ if __name__ == "__main__":
     np.random.seed(random_seed)
 
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-    #tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    # tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
-    #if not os.path.exists("rm_checkpoint"):
-        #os.mkdir("rm_checkpoint")
-    #if not os.path.exists("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint"):
-         #os.mkdir("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint")
+    # if not os.path.exists("rm_checkpoint"):
+    # os.mkdir("rm_checkpoint")
+    # if not os.path.exists("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint"):
+    # os.mkdir("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint")
     training_args = TrainingArguments(
-        #output_dir="rm_checkpoint/",
+        # output_dir="rm_checkpoint/",
         output_dir=cmd_args.output,
-        num_train_epochs=2,
+        num_train_epochs=1,
         logging_steps=10,
         gradient_accumulation_steps=4,
         save_strategy="steps",
         evaluation_strategy="steps",
-        #per_device_train_batch_size=1,
+        # per_device_train_batch_size=1,
         per_device_train_batch_size=8,
-        #per_device_eval_batch_size=1,
+        # per_device_eval_batch_size=1,
         per_device_eval_batch_size=8,
         eval_accumulation_steps=1,
         eval_steps=500,
@@ -131,21 +132,19 @@ if __name__ == "__main__":
         bf16=False,
         learning_rate=1e-5,
         deepspeed="/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/reward_model/ds_config_gpt_j.json",
-        #save_total_limit=1,
-        save_total_limit = 2,
+        # save_total_limit=1,
+        save_total_limit=2,
         load_best_model_at_end=True
     )
-    
-    # Initialize the reward model from the (supervised) fine-tuned GPT-J
-    #model_checkpoint_path = "/network/scratch/z/zixuan.li/reward_ckpt_saved"
 
-    #if os.path.exists(model_checkpoint_path) and os.listdir(model_checkpoint_path):
-        #model = GPTRewardModel(model_checkpoint_path)
+    # Initialize the reward model from the (supervised) fine-tuned GPT-J
+    # model_checkpoint_path = "/network/scratch/z/zixuan.li/reward_ckpt_saved"
+
+    # if os.path.exists(model_checkpoint_path) and os.listdir(model_checkpoint_path):
+    # model = GPTRewardModel(model_checkpoint_path)
     # else:
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft")
-    #model = GPTRewardModel("/network/scratch/z/zixuan.li/gptj-supervised-summarize-checkpoint")
 
-    
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
     num_layers = len(layers)
@@ -156,8 +155,8 @@ if __name__ == "__main__":
     # Create the comparisons datasets
     data_path = cmd_args.path
     train_pairs = create_comparison_dataset(data_path, "train")
-    #val_pairs = create_comparison_dataset(data_path, "test")
-    val_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
+    val_pairs = create_comparison_dataset(data_path, "validation")
+    # val_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
 
     # Make pairwise datasets for training
     max_length = 550
@@ -176,14 +175,5 @@ if __name__ == "__main__":
         data_collator=data_collator,
     )
     trainer.train()
-    
-    # Identify the best checkpoint
-    #best_checkpoint_path = trainer.state.best_model_checkpoint
 
-    # Rename the best checkpoint to "best_checkpoint"
-    #best_checkpoint_new_path = os.path.join(os.path.dirname(best_checkpoint_path), "best_checkpoint")
-    #os.rename(best_checkpoint_path, best_checkpoint_new_path)
-    
-    #trainer.save_model(cmd_args.output)
-    #print(trainer.state.best_model_checkpoint)
-    
+

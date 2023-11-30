@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="mila-salloc-gpu (16)">
+  <component name="PublishConfigData" autoUpload="Always" serverName="mila" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="mila-salloc-gpu">
+      <paths name="mila">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/mila/i/ines.arous/melody_project" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/mila/z/zixuan.li/rlhf_analysis" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="mila-salloc-gpu (16)">
+      <paths name="zixuan.li@cn-f003.server.mila.quebec:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/mila/i/ines.arous/melody_project" local="$PROJECT_DIR$" />
+            <mapping deploy="/home/mila/z/zixuan.li/rlhf_analysis/src/training/reward_model" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="zixuan.li@cn-f003.server.mila.quebec:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/mila/z/zixuan.li/rlhf_analysis/" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

@@ -137,7 +137,7 @@ def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability,
 
 def match_id_with_eval(summary_id, cirteria, unique_eval):
     filtered_data =unique_eval[unique_eval['summary_id'] == summary_id]
-       return filtered_data[cirteria].values[0]
+    return filtered_data[cirteria].values[0]
 
 def compare_eval_metrics(row, metric, unique_eval):
     metric_0 = float(match_id_with_eval(row["id_0"], metric, unique_eval))

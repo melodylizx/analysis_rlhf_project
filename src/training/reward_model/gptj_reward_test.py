@@ -7,6 +7,7 @@ from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer
+import argparse
 
 
 def set_seed(seed_val=42):
@@ -87,16 +88,21 @@ class DataCollatorReward:
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='reward model checkpoint')
+    parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
+    args = parser.parse_args()
+
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
     PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
 
-    #model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft")
-    model = GPTRewardModel("gpt2")
-    model.load_state_dict(torch.load("/network/scratch/z/zixuan.li/reward_model/rm_checkpoint"))
+    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft")
+    # model = GPTRewardModel("gpt2")
+    model.load_state_dict(torch.load(args.ckpt_path))
     max_length = 550
-    val_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
-    dev_dataset = PairwiseDataset(val_pairs, tokenizer, max_length=max_length)
+    test_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
+    dev_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
 
     from torch.utils.data import DataLoader
 

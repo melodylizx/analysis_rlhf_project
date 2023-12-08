@@ -42,8 +42,10 @@ comparisons_val_df = process_comparisons_df(comparisons_val,complete_summary_t2i
 
 
 #save results
+#dataset preparation for biased experiment with overlap between evaluation criteria and comparisons
 comparisons_val_df_overlap.to_pickle('../../data/overlap_comp_val.pkl')
 rating_val_overlap.to_pickle('../../data/overlap_axis_val.pkl')
 
+#dataset preparation for the comparison sets
 comparisons_train_df.to_pickle('../../data/comp_train.pkl')
 comparisons_val_df.to_pickle('../../data/comp_val.pkl')

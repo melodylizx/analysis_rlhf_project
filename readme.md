@@ -12,3 +12,6 @@
 ``pip install -r requirements``
 
 `` cd script/original/``
+
+To generate the data:
+

@@ -17,7 +17,5 @@ python data_loading.py
 # generate dataset with different levels of reliability
 python reliability.py
 
-# generate dataset with different levels of bias
-
-
-
+# generate dataset with different types of bias
+python generate_biased_data.py

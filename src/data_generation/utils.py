@@ -1,5 +1,18 @@
 import pandas as pd
 import pdb
+import os
+
+def create_directory(directory_path):
+    # Check if the directory already exists
+    if not os.path.exists(directory_path):
+        try:
+            # Create the directory
+            os.makedirs(directory_path)
+            print(f"Directory '{directory_path}' created successfully.")
+        except OSError as e:
+            print(f"Error creating directory '{directory_path}': {e}")
+    else:
+        print(f"Directory '{directory_path}' already exists.")
 
 def create_dict_comparision(comparisons):
     comparisons_df = pd.DataFrame(comparisons["info"])

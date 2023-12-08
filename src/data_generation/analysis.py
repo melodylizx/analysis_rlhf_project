@@ -4,7 +4,7 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 
-comp_train_df = pd.read_csv('../../data/comp_train.csv')
+comp_train_df = pd.read_pickle('../../data/comp_train.pkl')
 values = comp_train_df['worker'].value_counts()
 bins = np.outer(10.0 ** np.arange(-1, 7), [1, 2, 5]).ravel()[:-2]
 plt.figure(figsize=(16, 5))

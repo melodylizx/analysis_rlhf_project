@@ -4,9 +4,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class GPTRewardModel(nn.Module):
-    def __init__(self, model_path):
+    def __init__(self, model_path, hub_path):
         super().__init__()
-        model = AutoModelForCausalLM.from_pretrained(model_path)
+        model = AutoModelForCausalLM.from_pretrained(model_path, cache_dir=hub_path)
         self.config = model.config
         # `gpt-neo(x)` models use `hidden_size` attribute names instead of `n_embd``
         self.config.n_embd = self.config.hidden_size if hasattr(self.config, "hidden_size") else self.config.n_embd

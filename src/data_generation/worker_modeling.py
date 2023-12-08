@@ -1,18 +1,39 @@
+import pdb
 import random
 import pandas as pd
+import numpy as np
+import random
 
-class Worker:
-    def __init__(self, id, reliability):
-        self.id = id
-        self.reliability = reliability
 
-class Summary:
-    def __init__(self, id, overall, accuracy, coverage, coherence):
-        self.id = id
-        self.overall = overall
-        self.accuracy = accuracy
-        self.coverage = coverage
-        self.coherence = coherence
+def assign_instances(num_comparisons, worker_assignments):
+    assignments = {}
+    worker_assignments.sort_values(by='n_assignments', ascending=False)
+    pairs_w = pd.DataFrame(0,index=range(num_comparisons), columns=["count_w"])
+    pair_worker = np.array([[],[]])
+    pool = range(1, num_comparisons)
+    for worker in worker_assignments.worker_id:
+        worker_info = worker_assignments[worker_assignments['worker_id']==worker]
+        w_assignments = worker_info.n_assignments.iloc[0]
+        #randomly assign w_assignments pairs to worker
+        assignments_worker = random.sample(pool, min(len(pool),w_assignments))
+        assignments[worker] = assignments_worker
+        pairs_w["count_w"].iloc[assignments_worker] += 1
+        worker_pair = np.array([assignments_worker, [worker]*len(assignments_worker)])
+        pair_worker = np.append(pair_worker,worker_pair,axis=1)
+        if pairs_w[pairs_w["count_w"]>3].shape[0]>0:
+            pool = list(pairs_w[pairs_w["count_w"]<3].index)
+
+    return pair_worker,assignments,pairs_w
+
+
+def assign_rel_workers(pair_worker_assignment,dict_rel):
+    pair_worker_assignment['worker_label'] = -1
+    for worker in dict_rel:
+        w_rel = dict_rel[worker]
+        w_pairs = pair_worker_assignment[pair_worker_assignment['worker'] == worker]
+        w_pairs_rel = fixed_reliability(w_rel, w_pairs)
+        pair_worker_assignment['worker_label'][w_pairs_rel.index] = w_pairs_rel.worker_label
+    return pair_worker_assignment
 
 def fixed_reliability(reliability, comp_original_df):
     comp_df = comp_original_df.copy()
@@ -24,6 +45,65 @@ def fixed_reliability(reliability, comp_original_df):
     comp_df['worker_label']= comp_df['choice']
     comp_df['worker_label'].update(sampled_df)
     return comp_df
+
+def n_assignments(num_comparisons,total_num_workers,assignments):
+    workers_index = list(range(total_num_workers))
+    num_assignments = num_comparisons * 3
+    random_nums = np.random.randint(assignments['min'],assignments['max'],total_num_workers)
+    random_nums_sum = np.round(num_assignments * random_nums / sum(random_nums)).astype(int)
+    if sum(random_nums_sum) < num_assignments:
+        random_nums_sum[-1] += num_assignments-sum(random_nums_sum)
+    elif sum(random_nums_sum) > num_assignments:
+        random_nums_sum[-1] += num_assignments-sum(random_nums_sum)
+    assert sum(random_nums_sum) == num_assignments
+    np.random.shuffle(workers_index)
+    worker_assignments = pd.DataFrame(np.array([workers_index,random_nums_sum]).transpose(),columns=['worker_id','n_assignments'])
+    return worker_assignments
+
+def assign_reliability(worker_assignments,scenario):
+    worker_assignments['reliability'] = 0
+    maj_lim = round(0.8*len(worker_assignments))
+    quarter = round(0.25*len(worker_assignments))
+    if scenario == 'majority_low':
+        worker_assignments['reliability'].iloc[:maj_lim] = 0.2
+        worker_assignments['reliability'][maj_lim:] = 0.8
+    elif scenario == 'majority_high':
+        worker_assignments['reliability'].iloc[:maj_lim] = 0.8
+        worker_assignments['reliability'][maj_lim:] = 0.2
+    elif scenario == 'quarter_reliabilities':
+        worker_assignments['reliability'].iloc[:quarter] = 0.25
+        worker_assignments['reliability'][quarter:2*quarter] = 0.5
+        worker_assignments['reliability'].iloc[2*quarter:3*quarter] = 0.75
+        worker_assignments['reliability'][3*quarter:] = 1
+    elif scenario == 'random':
+        worker_assignments['reliability'] = np.random.rand(len(worker_assignments))
+    return worker_assignments
+
+
+def create_worker_answer_pairs(num_comparisons,total_num_workers,assignments,scenario):
+    pairs_index = list(range(num_comparisons))
+    worker_assignments = n_assignments(num_comparisons, total_num_workers, assignments)
+    worker_assignments_rel = assign_reliability(worker_assignments, scenario)
+
+class Worker:
+    def __init__(self, id, reliability):
+        self.id = id
+        self.reliability = reliability
+
+
+
+class Summary:
+    def __init__(self, id, overall, accuracy, coverage, coherence):
+        self.id = id
+        self.overall = overall
+        self.accuracy = accuracy
+        self.coverage = coverage
+        self.coherence = coherence
+
+
+
+
+
 
 def assign_answer(reliability, num_comparisons):
     if num_comparisons == 1:
@@ -135,9 +215,9 @@ def get_the_generated_df_for_comp(total_num_workers, num_generated, reliability,
 
     return generated_df
 
-def match_id_with_eval(summary_id, cirteria, unique_eval):
+def match_id_with_eval(summary_id, criteria, unique_eval):
     filtered_data =unique_eval[unique_eval['summary_id'] == summary_id]
-       return filtered_data[cirteria].values[0]
+    return filtered_data[criteria].values[0]
 
 def compare_eval_metrics(row, metric, unique_eval):
     metric_0 = float(match_id_with_eval(row["id_0"], metric, unique_eval))
@@ -146,31 +226,42 @@ def compare_eval_metrics(row, metric, unique_eval):
         return 0
     elif metric_0 < metric_1:
         return 1
-    return None
-
-def introduce_bias(comp_df_input, bias_accuracy, bias_coverage, bias_coherence, bias_towards_0, bias_towards_1, unique_eval):
-    if bias_towards_0:
-        comp_df_input["worker_label"] = 0
-    elif bias_towards_1:
-        comp_df_input["worker_label"] = 1
     else:
-        for index, row in comp_df_input.iterrows():
-            if bias_accuracy:
-                label = compare_eval_metrics(row, "accuracy", unique_eval)
-            elif bias_coverage:
-                label = compare_eval_metrics(row, "coverage", unique_eval)
-            elif bias_coherence:
-                label = compare_eval_metrics(row, "coherence", unique_eval)
+        overall_0 = unique_eval[unique_eval['summary_id']==row["id_0"]].overall.iloc[0]
+        overall_1 = unique_eval[unique_eval['summary_id']==row["id_1"]].overall.iloc[0]
+        if overall_0 > overall_1:
+            return 0
+        else:
+            return 1
 
-            if label is not None:
-                comp_df_input.at[index, "worker_label"] = label
+def introduce_bias_class(comp_df_input, bias_towards_0, bias_towards_1):
+    comp_df_biased = comp_df_input.copy()
+    if bias_towards_0:
+        comp_df_biased["worker_label"] = 0
+    elif bias_towards_1:
+        comp_df_biased["worker_label"] = 1
+    return comp_df_biased
 
-    return comp_df_input
+def introduce_bias_aspect(comp_df_input, unique_eval, bias_accuracy, bias_coverage, bias_coherence):
+    biased_input = comp_df_input.copy()
+    for index, row in biased_input.iterrows():
+        if bias_accuracy:
+            label = compare_eval_metrics(row, "accuracy", unique_eval)
+        elif bias_coverage:
+            label = compare_eval_metrics(row, "coverage", unique_eval)
+        elif bias_coherence:
+            label = compare_eval_metrics(row, "coherence", unique_eval)
+
+        if label is not None:
+            biased_input.at[index, "worker_label"] = label
+    biased_input["worker_label"] = biased_input["worker_label"].astype("int")
+    return biased_input
 
 def get_chosen_and_rejected(row):
     chosen_idx = row['worker_label']
     rejected_idx = 1 - chosen_idx  # Switch between 0 and 1
     return row[f'summary_text_{chosen_idx}'], row[f'summary_text_{rejected_idx}']
+
 
 def to_parquet(generated_df, split, title):
     # Create a copy of the dataframe to avoid modifying the input

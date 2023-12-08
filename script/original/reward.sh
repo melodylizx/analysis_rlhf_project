@@ -1,10 +1,12 @@
 #!/bin/bash
-
+#SBATCH --job-name=reward_original
+#SBATCH --ntasks=1
 #SBATCH --partition=long                          # Ask for unkillable job                         
-#SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
+#SBATCH --gres=gpu:a100l:2  --constraint="dgx&ampere"                                      # Ask for 1 GPU
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
 #SBATCH --time=120:00:00                                   # The job will run for 3 hours
-#SBATCH -o ../../results/tests/new_reward-%j.out  # Write the log on scratch
+#SBATCH --output=reward_out.txt
+#SBATCH --error=reward_error.txt# Write the log on scratch
 #SBATCH --constraint=80gb
 #SBATCH -c 3
 
@@ -18,7 +20,7 @@ conda init
 conda activate "rlhf"
 
 cd ../../src/training/
-deepspeed ./reward_model/train_reward_model_gptj.py --chpt_path $SCRATCH/reward_model --deepspeed --deepspeed_config ./reward_model/ds_config_gpt_j.json
+deepspeed ./reward_model/train_reward_model_gptj.py --chpt_path /network/scratch/i/ines.arous/reward_model --deepspeed --deepspeed_config ./reward_model/ds_config_gpt_j.json
 
 
 

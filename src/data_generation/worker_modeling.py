@@ -219,6 +219,7 @@ def match_id_with_eval(summary_id, criteria, unique_eval):
     filtered_data =unique_eval[unique_eval['summary_id'] == summary_id]
     return filtered_data[criteria].values[0]
 
+
 def compare_eval_metrics(row, metric, unique_eval):
     metric_0 = float(match_id_with_eval(row["id_0"], metric, unique_eval))
     metric_1 = float(match_id_with_eval(row["id_1"], metric, unique_eval))

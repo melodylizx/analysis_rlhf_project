@@ -11,19 +11,25 @@ import pdb
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Analysis")
+    parser = argparse.ArgumentParser(description="Analysis")
+
+    # Existing arguments
     parser.add_argument('--local_rank', type=int, default=-1,
                         help='local rank passed from distributed launcher')
-    parser.add_argument("--chpt_path",
-                        type=str,
-                        required=True,
+    parser.add_argument("--chpt_path", type=str, required=True,
                         help="path of the checkpoint")
     parser.add_argument("--hub_path",
                         type=str,
                         default='/network/scratch/i/ines.arous/models-hub/',
                         help="path of the checkpoint")
+
+    # New argument for dataset path
+    parser.add_argument("--data_path", type=str, required=True,
+                        help="path to load the dataset")
+
+    # DeepSpeed configuration arguments
     parser = deepspeed.add_config_arguments(parser)
+
     args = parser.parse_args()
     return args
 
@@ -110,9 +116,8 @@ if __name__ == "__main__":
     args = parse_args()
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
-
     if not os.path.exists(args.chpt_path):
-         os.mkdir(args.chpt_path)
+        os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
         num_train_epochs=5,
@@ -132,12 +137,34 @@ if __name__ == "__main__":
         learning_rate=1e-5,
         deepspeed=args.deepspeed_config,
         save_total_limit=2,
-        load_best_model_at_end =True,
+        load_best_model_at_end=True,
     )
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
     # double check the model to use
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
+
+    # Initialize the reward model from the (supervised) fine-tuned GPT-J
+    # model_checkpoint_path = "/network/scratch/z/zixuan.li/reward_ckpt_saved"
+
+    # if os.path.exists(model_checkpoint_path) and os.listdir(model_checkpoint_path):
+    # model = GPTRewardModel(model_checkpoint_path)
+    # else:
+
+    checkpoint_path = args.chpt_path
+    if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
+        # Get all checkpoint directories in the specified path
+        checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
+                       os.path.isdir(os.path.join(checkpoint_path, d))]
+
+        # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
+        checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
+
+        if checkpoints:
+            last_checkpoint = checkpoints[-1]  # Get the last checkpoint
+            model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
+            if os.path.isfile(model_checkpoint_file):
+                model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
 
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
@@ -147,9 +174,10 @@ if __name__ == "__main__":
         layer.requires_grad_(False)
 
     # Create the comparisons datasets
-    data_path = "CarperAI/openai_summarize_comparisons"
+    # data_path = "CarperAI/openai_summarize_comparisons"
+    data_path = args.data_path
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path, "test")
+    val_pairs = create_comparison_dataset(data_path, "validation")
 
     # Make pairwise datasets for training
     max_length = 550
@@ -168,4 +196,3 @@ if __name__ == "__main__":
         data_collator=data_collator,
     )
     trainer.train()
-    

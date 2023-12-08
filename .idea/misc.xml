@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.10.4 (/home/mila/i/ines.arous/.conda/envs/rlhf/bin/python) (2)" project-jdk-type="Python SDK" />
+  <component name="Black">
+    <option name="sdkName" value="Python 3.9 (analysis_rlhf_project)" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.10.12 (sftp://zixuan.li@cn-f003.server.mila.quebec:22/home/mila/z/zixuan.li/.conda/envs/sum/bin/python)" project-jdk-type="Python SDK" />
 </project>

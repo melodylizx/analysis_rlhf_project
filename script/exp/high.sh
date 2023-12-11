@@ -4,7 +4,8 @@
 #SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
 #SBATCH --time=48:00:00                                   # The job will run for 3 hours
-#SBATCH -o /home/mila/z/zixuan.li/output/unbiased/high-%j.out  # Write the log on scratch
+#SBATCH --output=./logs/high_out.txt
+#SBATCH --error=./logs/high_error.txt
 #SBATCH --constraint=80gb1
 #SBATCH -c 2
 

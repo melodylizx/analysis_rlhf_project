@@ -10,6 +10,7 @@
 module --quiet load anaconda/3
 conda activate "rlhf"
 
+rm -rf ./data/*
 #load the dataset this will create pkl file in the data folder
 cd ./src/data_generation
 python data_loading.py

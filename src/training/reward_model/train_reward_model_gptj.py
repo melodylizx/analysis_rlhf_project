@@ -132,6 +132,7 @@ if __name__ == "__main__":
         save_steps=500,
         warmup_steps=100,
         logging_dir="./logs",
+        run_name='_'.join(args.chpt_path.rsplit('/', 2)[1:]),
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
@@ -176,9 +177,8 @@ if __name__ == "__main__":
     # Create the comparisons datasets
     # data_path = "CarperAI/openai_summarize_comparisons"
     data_path = args.data_path
-    data_path_test = "CarperAI/openai_summarize_comparisons"
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path_test, "test")
+    val_pairs = create_comparison_dataset(data_path, "validation")
 
     # Make pairwise datasets for training
     max_length = 550

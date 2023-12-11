@@ -3,9 +3,9 @@
 #SBATCH --partition=long                     # Ask for unkillable job
 #SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
-#SBATCH --time=48:00:00                                   # The job will run for 2 days
-#SBATCH --output=./logs/extreme_out.txt
-#SBATCH --error=./logs/extreme_error.txt
+#SBATCH --time=48:00:00                                   # The job will run for 3 hours
+#SBATCH --output=./logs/bias_1_out.txt
+#SBATCH --error=./logs/bias_1_error.txt
 #SBATCH --constraint=80gb
 #SBATCH -c 2
 
@@ -14,10 +14,14 @@
 module --quiet load anaconda/3
 conda activate "rlhf"
 
+cd ./src/training/
+foldername=$(date +%Y_%m_%d_%H_%M)
+CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/bias_1/"$foldername"
 
-cd ./src/
-deepspeed examples/summarize_rlhf/reward_model/train_reward_model_gptj.py --data_path="/network/scratch/z/zixuan.li/generated_dataset/extreme" --chpt_path="/network/scratch/z/zixuan.li/experiment_reward_model/extreme"
+mkdir -p ${CHPTPATH}
 
-BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' /network/scratch/z/zixuan.li/experiment_reward_model/extreme/checkpoint-5000/trainer_state.json)
+deepspeed ./reward_model/train_reward_model_gptj.py --data_path="/network/scratch/i/ines.arous/data_rlhf/bias/bias_1" --chpt_path="${CHPTPATH}"
 
-python examples/summarize_rlhf/reward_model/gptj_reward_test.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin"
+BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' ${CHPTPATH}/checkpoint-5000/trainer_state.json)
+
+python ./reward_model/gptj_reward_test.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin"

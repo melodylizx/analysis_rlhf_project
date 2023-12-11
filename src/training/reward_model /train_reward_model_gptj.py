@@ -176,8 +176,9 @@ if __name__ == "__main__":
     # Create the comparisons datasets
     # data_path = "CarperAI/openai_summarize_comparisons"
     data_path = args.data_path
+    data_path_test = "CarperAI/openai_summarize_comparisons"
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path, "validation")
+    val_pairs = create_comparison_dataset(data_path_test, "test")
 
     # Make pairwise datasets for training
     max_length = 550

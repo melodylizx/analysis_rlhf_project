@@ -152,19 +152,19 @@ if __name__ == "__main__":
     # else:
 
     checkpoint_path = args.chpt_path
-    if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
-        # Get all checkpoint directories in the specified path
-        checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
-                       os.path.isdir(os.path.join(checkpoint_path, d))]
-
-        # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
-        checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
-
-        if checkpoints:
-            last_checkpoint = checkpoints[-1]  # Get the last checkpoint
-            model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
-            if os.path.isfile(model_checkpoint_file):
-                model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
+    # if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
+    #     # Get all checkpoint directories in the specified path
+    #     checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
+    #                    os.path.isdir(os.path.join(checkpoint_path, d))]
+    #
+    #     # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
+    #     checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
+    #
+    #     if checkpoints:
+    #         last_checkpoint = checkpoints[-1]  # Get the last checkpoint
+    #         model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
+    #         if os.path.isfile(model_checkpoint_file):
+    #             model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
 
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h

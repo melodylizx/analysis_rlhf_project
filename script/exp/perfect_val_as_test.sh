@@ -19,7 +19,7 @@ foldername=$(date +%Y_%m_%d_%H_%M)
 CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/perfect/test_as_val_"$foldername"
 
 mkdir -p ${CHPTPATH}
-deepspeed ./reward_model/train_reward_model_gptj.py  --data_path="/network/scratch/i/ines.arous/data_rlhf/reliability/perfect"  --chpt_path="${CHPTPATH}"
+deepspeed ./reward_model/train_reward_model_trlx.py  --chpt_path="${CHPTPATH}"
 
 BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' ${CHPTPATH}/checkpoint-5000/trainer_state.json)
 

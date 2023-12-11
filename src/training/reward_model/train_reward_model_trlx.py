@@ -1,5 +1,5 @@
 import os
-import deepspeed
+
 import torch
 from datasets import load_dataset
 from reward_model import GPTRewardModel
@@ -7,32 +7,21 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 import argparse
-import pdb
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Analysis")
-
-    # Existing arguments
-    parser.add_argument('--local_rank', type=int, default=-1,
-                        help='local rank passed from distributed launcher')
     parser.add_argument("--chpt_path", type=str, required=True,
                         help="path of the checkpoint")
+    # Existing arguments
     parser.add_argument("--hub_path",
                         type=str,
                         default='/network/scratch/i/ines.arous/models-hub/',
                         help="path of the checkpoint")
-
-    # New argument for dataset path
-    parser.add_argument("--data_path", type=str, required=True,
-                        help="path to load the dataset")
-
-    # DeepSpeed configuration arguments
-    parser = deepspeed.add_config_arguments(parser)
+    parser.add_argument("--chpt_path", type=str, required=True,
+                        help="path of the checkpoint")
 
     args = parser.parse_args()
     return args
-
 
 def create_comparison_dataset(path="CarperAI/openai_summarize_comparisons", split="train"):
     dataset = load_dataset(path, split=split)
@@ -108,17 +97,18 @@ def compute_metrics(eval_preds):
     result = {}
     acc = sum(chosen_end_scores > rejected_end_scores) / len(rejected_end_scores)
     result["accuracy"] = acc
-    print("accuracy",acc)
+
     return result
 
 
 if __name__ == "__main__":
     args = parse_args()
-    pdb.set_trace()
-    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
+    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
+
     if not os.path.exists(args.chpt_path):
         os.mkdir(args.chpt_path)
+
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
         num_train_epochs=5,
@@ -133,34 +123,15 @@ if __name__ == "__main__":
         save_steps=500,
         warmup_steps=100,
         logging_dir="./logs",
-        run_name='_'.join(args.chpt_path.rsplit('/', 2)[1:]),
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
-        deepspeed='./reward_model/ds_config_gpt_j.json',
-        save_total_limit=2,
-        load_best_model_at_end=True,
+        deepspeed="ds_config_gpt_j.json",
+        save_total_limit=1,
     )
+
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
-    # double check the model to use
-
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
-
-
-    checkpoint_path = args.chpt_path
-    # if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
-    #     # Get all checkpoint directories in the specified path
-    #     checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
-    #                    os.path.isdir(os.path.join(checkpoint_path, d))]
-    #
-    #     # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
-    #     checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
-    #
-    #     if checkpoints:
-    #         last_checkpoint = checkpoints[-1]  # Get the last checkpoint
-    #         model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
-    #         if os.path.isfile(model_checkpoint_file):
-    #             model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
 
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
@@ -170,10 +141,9 @@ if __name__ == "__main__":
         layer.requires_grad_(False)
 
     # Create the comparisons datasets
-    # data_path = "CarperAI/openai_summarize_comparisons"
-    data_path = args.data_path
+    data_path = "CarperAI/openai_summarize_comparisons"
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path, "validation")
+    val_pairs = create_comparison_dataset(data_path, "test")
 
     # Make pairwise datasets for training
     max_length = 550
@@ -183,12 +153,11 @@ if __name__ == "__main__":
     # Create the collator to gather batches of pairwise comparisons
     data_collator = DataCollatorReward()
 
-    trainer = Trainer(
+    Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         compute_metrics=compute_metrics,
         eval_dataset=val_dataset,
         data_collator=data_collator,
-    )
-    trainer.train()
+    ).train()

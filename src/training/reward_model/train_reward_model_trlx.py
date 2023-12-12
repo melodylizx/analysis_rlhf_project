@@ -17,8 +17,6 @@ def parse_args():
                         type=str,
                         default='/network/scratch/i/ines.arous/models-hub/',
                         help="path of the checkpoint")
-    parser.add_argument("--chpt_path", type=str, required=True,
-                        help="path of the checkpoint")
 
     args = parser.parse_args()
     return args
@@ -126,7 +124,7 @@ if __name__ == "__main__":
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
-        deepspeed="ds_config_gpt_j.json",
+        deepspeed='./reward_model/ds_config_gpt_j.json',
         save_total_limit=1,
     )
 

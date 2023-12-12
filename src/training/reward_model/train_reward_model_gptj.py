@@ -114,7 +114,6 @@ def compute_metrics(eval_preds):
 
 if __name__ == "__main__":
     args = parse_args()
-    pdb.set_trace()
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     if not os.path.exists(args.chpt_path):
@@ -171,9 +170,14 @@ if __name__ == "__main__":
 
     # Create the comparisons datasets
     # data_path = "CarperAI/openai_summarize_comparisons"
-    data_path = args.data_path
+    # data_path = args.data_path
+    # train_pairs = create_comparison_dataset(data_path, "train")
+    # val_pairs = create_comparison_dataset(data_path, "validation")
+    
+    # Create the comparisons datasets
+    data_path = "CarperAI/openai_summarize_comparisons"
     train_pairs = create_comparison_dataset(data_path, "train")
-    val_pairs = create_comparison_dataset(data_path, "validation")
+    val_pairs = create_comparison_dataset(data_path, "test")
 
     # Make pairwise datasets for training
     max_length = 550

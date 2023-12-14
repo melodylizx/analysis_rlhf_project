@@ -14,7 +14,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Analysis")
 
     # Existing arguments
-    parser.add_argument('--local_rank', type=int, default=-1,
+    parser.add_argument('--local_rank', type=int, default=0,
                         help='local rank passed from distributed launcher')
     parser.add_argument("--chpt_path", type=str, required=True,
                         help="path of the checkpoint")
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
-        num_train_epochs=5,
+        num_train_epochs=1,
         logging_steps=10,
         gradient_accumulation_steps=4,
         save_strategy="steps",
@@ -128,15 +128,20 @@ if __name__ == "__main__":
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         eval_accumulation_steps=1,
-        eval_steps=500,
-        save_steps=500,
+        eval_steps=100,
+        save_steps=100,
         warmup_steps=100,
         logging_dir="./logs",
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
+<<<<<<< Updated upstream
         deepspeed=args.deepspeed_config,
         save_total_limit=2,
+=======
+        deepspeed='./reward_model/ds_config_gpt_j.json',
+        save_total_limit=5,
+>>>>>>> Stashed changes
         load_best_model_at_end=True,
     )
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
@@ -178,6 +183,14 @@ if __name__ == "__main__":
     data_path = args.data_path
     train_pairs = create_comparison_dataset(data_path, "train")
     val_pairs = create_comparison_dataset(data_path, "validation")
+<<<<<<< Updated upstream
+=======
+    
+    # Create the comparisons datasets
+    # data_path = "CarperAI/openai_summarize_comparisons"
+    # train_pairs = create_comparison_dataset(data_path, "train")
+    # val_pairs = create_comparison_dataset(data_path, "test")
+>>>>>>> Stashed changes
 
     # Make pairwise datasets for training
     max_length = 550

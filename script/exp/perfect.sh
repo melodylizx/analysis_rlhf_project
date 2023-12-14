@@ -1,7 +1,12 @@
 #!/bin/bash
 
+<<<<<<< Updated upstream
 #SBATCH --partition=long                     # Ask for unkillable job                         
 #SBATCH --gres=gpu:a100l:2                                        # Ask for 1 GPU
+=======
+#SBATCH --partition=long                     # Ask for unkillable job
+#SBATCH --gres=gpu:a100l:2   --constraint="dgx&ampere"                                     # Ask for 1 GPU
+>>>>>>> Stashed changes
 #SBATCH --mem=96G                                        # Ask for 10 GB of RAM
 #SBATCH --time=48:00:00                                   # The job will run for 3 hours
 #SBATCH -o /home/mila/z/zixuan.li/output/unbiased/original_perfect-%j.out  # Write the log on scratch
@@ -16,8 +21,13 @@ conda init
 # 2. Load your environment
 conda activate "sum"
 
+<<<<<<< Updated upstream
 cd /home/mila/z/zixuan.li/trlx
 deepspeed examples/summarize_rlhf/reward_model/train_reward_model_gptj.py  --data_path="/network/scratch/z/zixuan.li/generated_dataset/perfect"  --chpt_path="/network/scratch/z/zixuan.li/experiment_reward_model/perfect"
+=======
+mkdir -p ${CHPTPATH}
+deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0  --data_path="/network/scratch/i/ines.arous/data_rlhf/reliability/perfect"  --chpt_path="${CHPTPATH}"
+>>>>>>> Stashed changes
 
 BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' /network/scratch/z/zixuan.li/experiment_reward_model/perfect/checkpoint-5000/trainer_state.json)
 

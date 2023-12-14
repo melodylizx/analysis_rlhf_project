@@ -17,3 +17,5 @@ __pycache__/
 
 # Ignore IntelliJ IDEA files
 .idea/
+
+.out/

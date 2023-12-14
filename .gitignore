@@ -1,0 +1,21 @@
+# Ignore compiled Python files
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore pickled data files
+/data/overlap_comp_validation.pkl
+/data/comp_train.pkl
+/data/comp_validation.pkl
+/data/overlap_axis_validation.pkl
+
+# Ignore macOS .DS_Store files
+.DS_Store
+
+# Ignore IntelliJ IDEA files
+.idea/
+
+.out/

@@ -3,7 +3,7 @@ import random
 import pandas as pd
 import numpy as np
 import random
-
+from utils import create_directory
 
 def assign_instances(num_comparisons, worker_assignments):
     assignments = {}
@@ -264,8 +264,9 @@ def get_chosen_and_rejected(row):
     return row[f'summary_text_{chosen_idx}'], row[f'summary_text_{rejected_idx}']
 
 
-def to_parquet(generated_df, split, title):
+def to_parquet(generated_df, directory_path, split, title):
     # Create a copy of the dataframe to avoid modifying the input
+    create_directory(directory_path+'/'+title)
     output_df = generated_df.copy()
 
     # Convert to the format for training
@@ -279,6 +280,6 @@ def to_parquet(generated_df, split, title):
     output_df['rejected'] = "TL;DR: " + output_df['rejected']
 
     # Save to parquet
-    output_df.to_parquet(split + "_" + title + '.parquet')
+    output_df.to_parquet(directory_path+'/'+title+'/'+split + "_" + title + '.parquet',index=False)
 
     return output_df

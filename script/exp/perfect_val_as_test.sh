@@ -21,6 +21,7 @@ CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/perfect/test_as_v
 mkdir -p ${CHPTPATH}
 deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0  --data_path="/network/scratch/i/ines.arous/data_rlhf/reliability/perfect"  --chpt_path="${CHPTPATH}"
 
+
 BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' ${CHPTPATH}/checkpoint-5000/trainer_state.json)
 
 python ./reward_model/gptj_reward_test.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin"

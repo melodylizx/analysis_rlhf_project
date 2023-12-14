@@ -36,6 +36,9 @@ def process_comparisons_df(comparisons_ds,summary_text2id):
     process_val_df = process_val_df.reset_index(drop=True)
     info_df = pd.json_normalize(process_val_df['info'])
     process_val_df = pd.concat([process_val_df.drop(['info'], axis=1), info_df], axis=1)
+    process_val_df = process_val_df.dropna(subset=['post'])
+    process_val_df.fillna(0, inplace=True)
+    process_val_df = process_val_df.reset_index()
     columns_list = ['choice', 'worker', 'summary_text_0',
                     'summary_text_1', 'id_0', 'id_1', 'id', 'post']
     return process_val_df[columns_list]

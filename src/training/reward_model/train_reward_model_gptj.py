@@ -114,6 +114,14 @@ def compute_metrics(eval_preds):
 
 if __name__ == "__main__":
     args = parse_args()
+    
+    random_seed = 0
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(random_seed)
+    
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     if not os.path.exists(args.chpt_path):
@@ -132,16 +140,12 @@ if __name__ == "__main__":
         save_steps=100,
         warmup_steps=100,
         logging_dir="./logs",
+        run_name='_'.join(args.chpt_path.rsplit('/', 2)[1:]),
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
-<<<<<<< Updated upstream
-        deepspeed=args.deepspeed_config,
-        save_total_limit=2,
-=======
         deepspeed='./reward_model/ds_config_gpt_j.json',
         save_total_limit=5,
->>>>>>> Stashed changes
         load_best_model_at_end=True,
     )
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
@@ -149,27 +153,21 @@ if __name__ == "__main__":
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
 
-    # Initialize the reward model from the (supervised) fine-tuned GPT-J
-    # model_checkpoint_path = "/network/scratch/z/zixuan.li/reward_ckpt_saved"
-
-    # if os.path.exists(model_checkpoint_path) and os.listdir(model_checkpoint_path):
-    # model = GPTRewardModel(model_checkpoint_path)
-    # else:
 
     checkpoint_path = args.chpt_path
-    if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
-        # Get all checkpoint directories in the specified path
-        checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
-                       os.path.isdir(os.path.join(checkpoint_path, d))]
-
-        # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
-        checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
-
-        if checkpoints:
-            last_checkpoint = checkpoints[-1]  # Get the last checkpoint
-            model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
-            if os.path.isfile(model_checkpoint_file):
-                model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
+    # if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
+    #     # Get all checkpoint directories in the specified path
+    #     checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
+    #                    os.path.isdir(os.path.join(checkpoint_path, d))]
+    #
+    #     # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
+    #     checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
+    #
+    #     if checkpoints:
+    #         last_checkpoint = checkpoints[-1]  # Get the last checkpoint
+    #         model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
+    #         if os.path.isfile(model_checkpoint_file):
+    #             model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
 
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
@@ -180,17 +178,21 @@ if __name__ == "__main__":
 
     # Create the comparisons datasets
     # data_path = "CarperAI/openai_summarize_comparisons"
-    data_path = args.data_path
+    # data_path = args.data_path
+    # train_pairs = create_comparison_dataset(data_path, "train")
+    # val_pairs = create_comparison_dataset(data_path, "validation")
+    
+    # Create the comparisons datasets
+    data_path = "CarperAI/openai_summarize_comparisons"
     train_pairs = create_comparison_dataset(data_path, "train")
     val_pairs = create_comparison_dataset(data_path, "validation")
-<<<<<<< Updated upstream
-=======
+
     
     # Create the comparisons datasets
     # data_path = "CarperAI/openai_summarize_comparisons"
     # train_pairs = create_comparison_dataset(data_path, "train")
     # val_pairs = create_comparison_dataset(data_path, "test")
->>>>>>> Stashed changes
+
 
     # Make pairwise datasets for training
     max_length = 550

@@ -6,7 +6,20 @@ from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer, Trainer, TrainingArguments
+import argparse
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Analysis")
+    parser.add_argument("--chpt_path", type=str, required=True,
+                        help="path of the checkpoint")
+    # Existing arguments
+    parser.add_argument("--hub_path",
+                        type=str,
+                        default='/network/scratch/i/ines.arous/models-hub/',
+                        help="path of the checkpoint")
+
+    args = parser.parse_args()
+    return args
 
 def create_comparison_dataset(path="CarperAI/openai_summarize_comparisons", split="train"):
     dataset = load_dataset(path, split=split)
@@ -87,14 +100,15 @@ def compute_metrics(eval_preds):
 
 
 if __name__ == "__main__":
+    args = parse_args()
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
 
-    if not os.path.exists("rm_checkpoint"):
-        os.mkdir("rm_checkpoint")
+    if not os.path.exists(args.chpt_path):
+        os.mkdir(args.chpt_path)
 
     training_args = TrainingArguments(
-        output_dir="rm_checkpoint/",
+        output_dir=args.chpt_path,
         num_train_epochs=5,
         logging_steps=10,
         gradient_accumulation_steps=4,
@@ -110,12 +124,12 @@ if __name__ == "__main__":
         fp16=True,
         bf16=False,
         learning_rate=1e-5,
-        deepspeed="ds_config_gpt_j.json",
+        deepspeed='./reward_model/ds_config_gpt_j.json',
         save_total_limit=1,
     )
 
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
-    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft")
+    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
 
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h

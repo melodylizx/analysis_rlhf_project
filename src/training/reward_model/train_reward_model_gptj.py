@@ -114,6 +114,14 @@ def compute_metrics(eval_preds):
 
 if __name__ == "__main__":
     args = parse_args()
+    
+    random_seed = 0
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(random_seed)
+    
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     if not os.path.exists(args.chpt_path):

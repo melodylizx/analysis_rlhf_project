@@ -4,6 +4,7 @@ import torch
 from datasets import load_dataset
 from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
+from trlx.utils import set_seed
 from tqdm import tqdm
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 import argparse
@@ -18,6 +19,8 @@ def parse_args():
                         help='local rank passed from distributed launcher')
     parser.add_argument("--chpt_path", type=str, required=True,
                         help="path of the checkpoint")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="random seed")
     parser.add_argument("--hub_path",
                         type=str,
                         default='/network/scratch/i/ines.arous/models-hub/',
@@ -114,14 +117,7 @@ def compute_metrics(eval_preds):
 
 if __name__ == "__main__":
     args = parse_args()
-    
-    random_seed = 0
-    torch.manual_seed(random_seed)
-    torch.cuda.manual_seed(random_seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(random_seed)
-    
+    set_seed(args.seed)
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     if not os.path.exists(args.chpt_path):
@@ -177,15 +173,14 @@ if __name__ == "__main__":
         layer.requires_grad_(False)
 
     # Create the comparisons datasets
-    # data_path = "CarperAI/openai_summarize_comparisons"
-    # data_path = args.data_path
-    # train_pairs = create_comparison_dataset(data_path, "train")
-    # val_pairs = create_comparison_dataset(data_path, "validation")
-    
-    # Create the comparisons datasets
-    data_path = "CarperAI/openai_summarize_comparisons"
+    data_path = args.data_path
     train_pairs = create_comparison_dataset(data_path, "train")
     val_pairs = create_comparison_dataset(data_path, "validation")
+    
+    # Create the comparisons datasets
+    # data_path = "CarperAI/openai_summarize_comparisons"
+    # train_pairs = create_comparison_dataset(data_path, "train")
+    # val_pairs = create_comparison_dataset(data_path, "validation")
 
     
     # Create the comparisons datasets

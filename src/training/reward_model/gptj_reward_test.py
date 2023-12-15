@@ -91,13 +91,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='reward model checkpoint')
     parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
+    parser.add_argument("--hub_path",
+                        type=str,
+                        default='/network/scratch/i/ines.arous/models-hub/',
+                        help="path of the checkpoint")
     args = parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
     PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
 
-    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft")
+    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
     # model = GPTRewardModel("gpt2")
     model.load_state_dict(torch.load(args.ckpt_path))
     max_length = 550

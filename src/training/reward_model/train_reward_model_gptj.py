@@ -4,13 +4,14 @@ import torch
 from datasets import load_dataset
 from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
-from trlx.utils import set_seed
 from tqdm import tqdm
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 import argparse
 import pdb
+import sys
+sys.path.insert(0, '..')
 
-
+from trlx.utils import set_seed
 def parse_args():
     parser = argparse.ArgumentParser(description="Analysis")
 

@@ -115,10 +115,18 @@ def compute_metrics(eval_preds):
     print("accuracy",acc)
     return result
 
+def find_largest_checkpoint(ckpt_path):
+    checkpoints = [entry  for entry in os.listdir(ckpt_path) if entry.startswith('checkpoint')]
+    if len(checkpoints) == 0:
+        return False
+    else:
+        largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('-')[1]))
+        return os.path.join(ckpt_path, largest_checkpoint)
 
 if __name__ == "__main__":
     args = parse_args()
     set_seed(args.seed)
+    last_checkpoint= find_largest_checkpoint(args.chpt_path)
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     if not os.path.exists(args.chpt_path):
@@ -130,8 +138,8 @@ if __name__ == "__main__":
         gradient_accumulation_steps=4,
         save_strategy="steps",
         evaluation_strategy="steps",
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
         eval_accumulation_steps=1,
         eval_steps=100,
         save_steps=100,
@@ -143,29 +151,12 @@ if __name__ == "__main__":
         learning_rate=1e-5,
         deepspeed='./reward_model/ds_config_gpt_j.json',
         save_total_limit=5,
-        load_best_model_at_end=True,
+        load_best_model_at_end=True
     )
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
     # double check the model to use
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
-
-
-    checkpoint_path = args.chpt_path
-    # if os.path.exists(checkpoint_path) and os.listdir(checkpoint_path):
-    #     # Get all checkpoint directories in the specified path
-    #     checkpoints = [os.path.join(checkpoint_path, d) for d in os.listdir(checkpoint_path) if
-    #                    os.path.isdir(os.path.join(checkpoint_path, d))]
-    #
-    #     # Sort the checkpoints - this assumes the naming convention includes a step number, e.g., 'checkpoint-500'
-    #     checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
-    #
-    #     if checkpoints:
-    #         last_checkpoint = checkpoints[-1]  # Get the last checkpoint
-    #         model_checkpoint_file = os.path.join(last_checkpoint, 'pytorch_model.bin')
-    #         if os.path.isfile(model_checkpoint_file):
-    #             model.load_state_dict(torch.load(model_checkpoint_file, map_location=torch.device('cpu')))
-
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
     num_layers = len(layers)
@@ -177,18 +168,6 @@ if __name__ == "__main__":
     data_path = args.data_path
     train_pairs = create_comparison_dataset(data_path, "train")
     val_pairs = create_comparison_dataset(data_path, "validation")
-    
-    # Create the comparisons datasets
-    # data_path = "CarperAI/openai_summarize_comparisons"
-    # train_pairs = create_comparison_dataset(data_path, "train")
-    # val_pairs = create_comparison_dataset(data_path, "validation")
-
-    
-    # Create the comparisons datasets
-    # data_path = "CarperAI/openai_summarize_comparisons"
-    # train_pairs = create_comparison_dataset(data_path, "train")
-    # val_pairs = create_comparison_dataset(data_path, "test")
-
 
     # Make pairwise datasets for training
     max_length = 550
@@ -206,4 +185,7 @@ if __name__ == "__main__":
         eval_dataset=val_dataset,
         data_collator=data_collator,
     )
-    trainer.train()
+    if last_checkpoint==False:
+        trainer.train()
+    else:
+        trainer.train(resume_from_checkpoint=last_checkpoint)

@@ -1,8 +1,11 @@
 import random
-
+import os
+import json
+import csv
 import numpy as np
 import torch
 from datasets import load_dataset
+from torch.utils.data import DataLoader
 from reward_model import GPTRewardModel
 from torch.utils.data import Dataset
 from tqdm import tqdm
@@ -86,6 +89,16 @@ class DataCollatorReward:
         batch["labels"] = torch.tensor([0] * len(data) + [1] * len(data))
         return batch
 
+def find_largest_checkpoint(ckpt_path):
+    checkpoints = [entry for entry in os.listdir(ckpt_path) if entry.startswith('checkpoint')]
+    largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('-')[1]))
+    return os.path.join(ckpt_path, largest_checkpoint, 'trainer_state.json')
+
+def get_best_checkpoint(json_file_path):
+    with open(json_file_path, 'r') as file:
+        data = json.load(file)
+
+    return data.get('best_model_checkpoint', None)
 
 if __name__ == "__main__":
 
@@ -96,33 +109,71 @@ if __name__ == "__main__":
                         default='/network/scratch/i/ines.arous/models-hub/',
                         help="path of the checkpoint")
     args = parser.parse_args()
-
+    largest_checkpoint_path = find_largest_checkpoint(args.ckpt_path)
+    if largest_checkpoint_path:
+        best_checkpoint = get_best_checkpoint(largest_checkpoint_path)
+        print("Best Checkpoint:", best_checkpoint)
+    else:
+        print("No valid checkpoints found.")
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
     PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
-    # model = GPTRewardModel("gpt2")
-    model.load_state_dict(torch.load(args.ckpt_path))
     max_length = 550
     test_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
     dev_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
-
-    from torch.utils.data import DataLoader
-
     dev_dataloader = DataLoader(dev_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
-    model.cuda()
-    model.eval()
-    model.half()
-    correct = 0
-    chosen_list = []
-    reject_list = []
-    with torch.no_grad():
-        for step, batch in tqdm(enumerate(dev_dataloader), total=len(dev_dataloader)):
-            for x in batch:
-                batch[x] = batch[x].cuda()
-            outputs = model(**batch)
-            correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
-            chosen_list.append(outputs["chosen_end_scores"].cpu())
-            reject_list.append(outputs["rejected_end_scores"].cpu())
-    print("Total accuracy: ", correct / len(dev_dataset))
+    # Initialize a list to store accuracy for each checkpoint
+    accuracy_records = []
+
+    # Iterate through all checkpoints
+    for checkpoint_name in os.listdir(args.ckpt_path):
+        checkpoint_path = os.path.join(args.ckpt_path, checkpoint_name)
+        if os.path.isdir(checkpoint_path):
+            model_state_path = os.path.join(checkpoint_path, 'pytorch_model.bin')
+
+            # Load the model state dictionary from pytorch_model.bin
+            model.load_state_dict(torch.load(model_state_path))
+            model.cuda()
+            model.eval()
+            model.half()
+            # Evaluate accuracy for the current checkpoint
+            correct = 0
+            chosen_list = []
+            reject_list = []
+            with torch.no_grad():
+                for step, batch in tqdm(enumerate(dev_dataloader), total=len(dev_dataloader)):
+                    for x in batch:
+                        batch[x] = batch[x].cuda()
+                    outputs = model(**batch)
+                    correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
+                    chosen_list.append(outputs["chosen_end_scores"].cpu())
+                    reject_list.append(outputs["rejected_end_scores"].cpu())
+
+            # Calculate and store accuracy for the current checkpoint
+            accuracy = correct / len(dev_dataset)
+            accuracy_records.append({"Checkpoint": checkpoint_name, "Accuracy": accuracy})
+
+    # Save accuracy records to a CSV file
+    csv_file_path = os.path.join(args.ckpt_path, "accuracy_records.csv")
+    fields = ["Checkpoint", "Accuracy"]
+
+    with open(csv_file_path, mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fields)
+
+        # Write the header
+        writer.writeheader()
+
+        # Write accuracy records
+        writer.writerows(accuracy_records)
+
+
+
+
+
+
+
+
+
+

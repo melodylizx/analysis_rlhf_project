@@ -16,12 +16,9 @@ conda activate "rlhf"
 
 cd ./src/training/
 foldername=$(date +%Y_%m_%d_%H_%M)
-CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/perfect/"$foldername"
+CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/perfect/2023_12_17_09_00
 
 
-mkdir -p ${CHPTPATH}
+
 deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0  --data_path="/network/scratch/i/ines.arous/data_rlhf/reliability/perfect"  --chpt_path="${CHPTPATH}"
-
-BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' ${CHPTPATH}/checkpoint-5000/trainer_state.json)
-
-python ./reward_model/gptj_reward_test.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin"
+python ./reward_model/gptj_reward_test.py --ckpt_path="${CHPTPATH}"

@@ -15,14 +15,9 @@ module --quiet load anaconda/3
 conda activate "rlhf"
 
 
-cd ./src/
-deepspeed examples/summarize_rlhf/reward_model/train_reward_model_gptj.py --data_path="/network/scratch/z/zixuan.li/generated_dataset/extreme" --chpt_path="/network/scratch/z/zixuan.li/experiment_reward_model/extreme"
-
-BEST_CHECKPOINT_PATH=$(jq -r '.best_model_checkpoint' /network/scratch/z/zixuan.li/experiment_reward_model/extreme/checkpoint-5000/trainer_state.json)
-
-python examples/summarize_rlhf/reward_model/gptj_reward_test.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin"
-
-#cd /home/mila/z/zixuan.li/trlx/examples/summarize_rlhf
-#accelerate launch --config_file configs/default_accelerate_config.yaml new_ppo.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin" --save_path="/network/scratch/z/zixuan.li/experiment_ppo_model/extreme"
-
-#python rouge.py --ckpt_path="${BEST_CHECKPOINT_PATH}/pytorch_model.bin" --save_path="/network/scratch/z/zixuan.li/experiment_ppo_model/extreme" --csv_path="/network/scratch/z/zixuan.li/result_of_experiments/extreme/ppo_with_reward_scores.csv"
+cd ./src/training/
+foldername=$(date +%Y_%m_%d_%H_%M)
+CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/extreme/"$foldername"
+mkdir -p ${CHPTPATH}
+deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0 --data_path="/network/scratch/i/ines.arous/data_rlhf/reliability/extreme"  --chpt_path="${CHPTPATH}"
+python ./reward_model/gptj_reward_test.py --ckpt_path="${CHPTPATH}"

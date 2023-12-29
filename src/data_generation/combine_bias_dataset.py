@@ -1,8 +1,8 @@
 import pandas as pd
 
-train_accuracy = pd.read_parquet('../../data/bias/accuracy/accuracy.parquet')
-train_coherence = pd.read_parquet('../../data/bias/coherence/coherence.parquet')
-train_coverage = pd.read_parquet('../../data/bias/coverage/coverage.parquet')
+train_accuracy = pd.read_parquet('../../data/bias/accuracy/all_accuracy.parquet')
+train_coherence = pd.read_parquet('../../data/bias/coherence/all_coherence.parquet')
+train_coverage = pd.read_parquet('../../data/bias/coverage/all_coverage.parquet')
 train_perfect = pd.read_parquet('../../data/reliability/perfect/train_perfect.parquet')
 validation_perfect = pd.read_parquet('../../data/reliability/perfect/validation_perfect.parquet')
 

@@ -3,7 +3,8 @@
 from datasets import load_dataset
 import pandas as pd
 import warnings
-from utils import create_post2summaries_ratings, create_dict_comparision, process_comparisons_df, update_summary_t2id
+from utils import filter_duplicates_disagreement, create_post2summaries_ratings, create_dict_comparision, process_comparisons_df, update_summary_t2id
+import worker_modeling
 
 warnings.filterwarnings('ignore')
 
@@ -31,23 +32,37 @@ rating_validation_overlap, repeated_summaries, summary_text2id = create_post2sum
 # processing comparisons to keep only those from validation set: post_id, summary_text, choice_worker, worker_id, confidence
 # 739 unique summaries
 comparisons_validation_df_overlap = process_comparisons_df(comparisons_val,summary_text2id)
+comp_val_overlap_df_dup = filter_duplicates_disagreement(comparisons_validation_df_overlap)
 
 #full training dataset
 complete_summary_t2id = update_summary_t2id(comparisons_train, summary_text2id)
 comparisons_train_df = process_comparisons_df(comparisons_train,complete_summary_t2id)
-
+comp_train_df_dup = filter_duplicates_disagreement(comparisons_train_df)
 
 #full validation set
 complete_summary_t2id = update_summary_t2id(comparisons_val, summary_text2id)
 comparisons_validation_df = process_comparisons_df(comparisons_val,complete_summary_t2id)
+comp_val_df_dup = filter_duplicates_disagreement(comparisons_validation_df)
 
 
 #save results
 #dataset preparation for biased experiment with overlap between evaluation criteria and comparisons
 
-comparisons_validation_df_overlap.to_pickle('../../data/overlap_comp_validation.pkl')
+comp_val_overlap_df_dup.to_pickle('../../data/overlap_comp_validation.pkl')
 rating_validation_overlap.to_pickle('../../data/overlap_axis_validation.pkl')
 
 #dataset preparation for the comparison sets
-comparisons_train_df.to_pickle('../../data/comp_train.pkl')
-comparisons_validation_df.to_pickle('../../data/comp_validation.pkl')
+comp_train_df_dup.to_pickle('../../data/comp_train.pkl')
+
+#keep 10k of pairs for testing
+validation_set = comp_val_df_dup[:-10000]
+test_set = comp_val_df_dup[-10000:]
+
+validation_set.to_pickle('../../data/comp_validation.pkl')
+test_set.to_pickle('../../data/comp_test.pkl')
+
+#save the test set in the perfect setup
+directory_path = '../../data/reliability'
+test_set.loc[:,'worker_label'] = test_set['choice']
+test_set.reset_index(drop=True, inplace=True)
+worker_modeling.to_parquet(test_set, directory_path, "test", "perfect")

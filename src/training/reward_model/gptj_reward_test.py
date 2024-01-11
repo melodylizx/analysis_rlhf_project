@@ -22,8 +22,8 @@ def set_seed(seed_val=42):
 
 def create_comparison_dataset(path="CarperAI/openai_summarize_comparisons", split="train"):
     dataset = load_dataset(path, split=split)
-    if split == "test":
-        dataset = dataset.select(range(5000))
+    # if split == "test":
+    #     dataset = dataset.select(range(5000))
 
     pairs = []
     for sample in tqdm(dataset):
@@ -121,7 +121,8 @@ if __name__ == "__main__":
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
     max_length = 550
-    test_pairs = create_comparison_dataset("CarperAI/openai_summarize_comparisons", "test")
+    data_path = '../../data/reliability/perfect'
+    test_pairs = create_comparison_dataset(data_path, "test")
     dev_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
     dev_dataloader = DataLoader(dev_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
     # Initialize a list to store accuracy for each checkpoint

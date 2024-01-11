@@ -40,7 +40,8 @@ def process_comparisons_df(comparisons_ds,summary_text2id):
     process_val_df.fillna(0, inplace=True)
     process_val_df = process_val_df.reset_index()
     columns_list = ['choice', 'worker', 'summary_text_0',
-                    'summary_text_1', 'id_0', 'id_1', 'id', 'post']
+                    'summary_text_1', 'id_0', 'id_1', 'id', 'prompt']
+    process_val_df['prompt'] ="SUBREDDIT: " + process_val_df['subreddit'] + " TITLE: " + process_val_df['title'] + " POST: " + process_val_df['post']
     return process_val_df[columns_list]
 
 
@@ -84,3 +85,15 @@ def update_summary_t2id(comparisons_ds, summary_t2id):
     return complete_summary_t2id
 
 
+def filter_duplicates_disagreement(comp):
+    comp.loc[:, 'pair'] = comp['id_0'].astype(str) + '_' + comp['id_1'].astype(str)
+    # remove duplicates
+    comp_drop_duplicates = comp.drop_duplicates(subset=['choice', 'pair', 'id'])
+    # remove conflicting cases
+    mask = comp_drop_duplicates[comp_drop_duplicates.duplicated(subset=['pair'])].pair
+    comp_rem_confl = comp_drop_duplicates[~comp_drop_duplicates['pair'].isin(mask)]
+    # remove rows where the summaries are too short
+    remove_short_sum_0 = comp_rem_confl[comp_rem_confl['summary_text_0'].str.len() > 5]
+    remove_short_sum_1 = remove_short_sum_0[remove_short_sum_0['summary_text_1'].str.len() > 5]
+    comp.reset_index(drop=True, inplace=True)
+    return remove_short_sum_1

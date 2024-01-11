@@ -270,12 +270,10 @@ def to_parquet(generated_df, directory_path, split, title):
     output_df = generated_df.copy()
 
     # Convert to the format for training
-    output_df['prompt'] = output_df['post']
     output_df['chosen'], output_df['rejected'] = zip(*output_df.apply(get_chosen_and_rejected, axis=1))
     output_df = output_df[['prompt', 'chosen', 'rejected']]
 
     # Add prefixes to the prompt, chosen, and rejected columns
-    output_df['prompt'] = "POST: " + output_df['prompt']
     output_df['chosen'] = "TL;DR: " + output_df['chosen']
     output_df['rejected'] = "TL;DR: " + output_df['rejected']
 

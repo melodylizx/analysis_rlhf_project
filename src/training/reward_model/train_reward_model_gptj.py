@@ -133,7 +133,7 @@ if __name__ == "__main__":
         os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
-        num_train_epochs=3,
+        num_train_epochs=1,
         logging_steps=10,
         gradient_accumulation_steps=4,
         save_strategy="steps",

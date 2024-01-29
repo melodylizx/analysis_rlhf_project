@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer
 import argparse
-
+import pdb
 
 def set_seed(seed_val=42):
     random.seed(seed_val)
@@ -121,7 +121,7 @@ if __name__ == "__main__":
 
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
     max_length = 550
-    data_path = '../../data/reliability/perfect'
+    data_path = '/home/mila/i/ines.arous/rlhf/data/reliability/perfect'
     test_pairs = create_comparison_dataset(data_path, "test")
     dev_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
     dev_dataloader = DataLoader(dev_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
@@ -131,6 +131,7 @@ if __name__ == "__main__":
     # Iterate through all checkpoints
     for checkpoint_name in os.listdir(args.ckpt_path):
         checkpoint_path = os.path.join(args.ckpt_path, checkpoint_name)
+        print("first one")
         if os.path.isdir(checkpoint_path):
             model_state_path = os.path.join(checkpoint_path, 'pytorch_model.bin')
 
@@ -151,7 +152,6 @@ if __name__ == "__main__":
                     correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
                     chosen_list.append(outputs["chosen_end_scores"].cpu())
                     reject_list.append(outputs["rejected_end_scores"].cpu())
-
             # Calculate and store accuracy for the current checkpoint
             accuracy = correct / len(dev_dataset)
             accuracy_records.append({"Checkpoint": checkpoint_name, "Accuracy": accuracy})

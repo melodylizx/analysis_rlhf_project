@@ -53,10 +53,16 @@ rating_validation_overlap.to_pickle('../../data/overlap_axis_validation.pkl')
 
 #dataset preparation for the comparison sets
 comp_train_df_dup.to_pickle('../../data/comp_train.pkl')
+confusing_train = comp_train_df_dup[(comp_train_df_dup['conf'] > 0) & (comp_train_df_dup['conf'] < 5)]
+confident_train =  comp_train_df_dup[(comp_train_df_dup['conf'] > 0) & (comp_train_df_dup['conf'] > 5)]
 
 #keep 10k of pairs for testing
 validation_set = comp_val_df_dup[:-10000]
 test_set = comp_val_df_dup[-10000:]
+
+confusing_val = validation_set[(validation_set['conf'] > 0) & (validation_set['conf'] < 5)]
+confident_val =  validation_set[(validation_set['conf'] > 0) & (validation_set['conf'] > 5)]
+
 
 validation_set.to_pickle('../../data/comp_validation.pkl')
 test_set.to_pickle('../../data/comp_test.pkl')
@@ -66,3 +72,24 @@ directory_path = '../../data/reliability'
 test_set.loc[:,'worker_label'] = test_set['choice']
 test_set.reset_index(drop=True, inplace=True)
 worker_modeling.to_parquet(test_set, directory_path, "test", "perfect")
+
+#save the confusing cases
+#save the training set
+def save_conf_parquet(df,original_df,split,exp, path):
+    df.loc[:, 'worker_label'] = df['choice']
+    df.reset_index(drop=True, inplace=True)
+    sample_size = int(len(original_df) * 0.2)
+    df_sample = df.sample(n=sample_size, random_state=42)
+    worker_modeling.to_parquet(df_sample, path, split, exp)
+    return df_sample
+
+
+low_conf_path = '../../data/'
+confusing_train_sample = save_conf_parquet(confusing_train,comp_train_df_dup,"train","low_conf", low_conf_path)
+confusing_val_sample = save_conf_parquet(confusing_val,validation_set,"validation","low_conf", low_conf_path)
+
+#high confidence
+high_conf_path = '../../data/'
+confident_train_sample = save_conf_parquet(confident_train,comp_train_df_dup,"train","high_conf", high_conf_path)
+confident_val_sample = save_conf_parquet(confident_val,validation_set,"validation","high_conf", high_conf_path)
+

@@ -30,6 +30,7 @@ def process_comparisons_df(comparisons_ds,summary_text2id):
     comparisons_ds_df['summary_text_1'] = comparisons_ds_df.summaries.map(lambda x: x[1]['text'])
     comparisons_ds_df['id_0'] = comparisons_ds_df.summaries.map(lambda x: summary_text2id[x[0]['text']] if x[0]['text'] in summary_text2id else -1)
     comparisons_ds_df['id_1'] = comparisons_ds_df.summaries.map(lambda x: summary_text2id[x[1]['text']] if x[1]['text'] in summary_text2id else -1)
+    comparisons_ds_df['conf'] = comparisons_ds_df.extra.map(lambda x: x['confidence'])
     comparisons_ds_df = comparisons_ds_df.drop(['summaries'], axis=1)
     comparisons_ds_df_first = comparisons_ds_df[comparisons_ds_df['id_0']!=-1]
     process_val_df = comparisons_ds_df_first[comparisons_ds_df_first['id_1']!=-1]
@@ -40,7 +41,7 @@ def process_comparisons_df(comparisons_ds,summary_text2id):
     process_val_df.fillna(0, inplace=True)
     process_val_df = process_val_df.reset_index()
     columns_list = ['choice', 'worker', 'summary_text_0',
-                    'summary_text_1', 'id_0', 'id_1', 'id', 'prompt']
+                    'summary_text_1', 'id_0', 'id_1', 'id', 'prompt','conf']
     process_val_df['prompt'] ="SUBREDDIT: " + process_val_df['subreddit'] + " TITLE: " + process_val_df['title'] + " POST: " + process_val_df['post']
     return process_val_df[columns_list]
 

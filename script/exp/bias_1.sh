@@ -21,6 +21,6 @@ CHPTPATH=/network/scratch/i/ines.arous/experiment_reward_model/bias_1/"$folderna
 
 mkdir -p ${CHPTPATH}
 
-deepspeed ./reward_model/train_reward_model_gptj.py --data_path="/network/scratch/i/ines.arous/data_rlhf/bias/bias_1" --chpt_path="${CHPTPATH}"
+deepspeed ./reward_model/train_reward_model_gptj.py --seed=3 --data_path="/network/scratch/i/ines.arous/data_rlhf/bias/bias_1" --chpt_path="${CHPTPATH}"
 
 python ./reward_model/gptj_reward_test.py --ckpt_path="${CHPTPATH}"

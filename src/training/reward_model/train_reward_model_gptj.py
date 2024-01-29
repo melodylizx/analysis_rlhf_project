@@ -133,7 +133,7 @@ if __name__ == "__main__":
         os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
-        num_train_epochs=1,
+        num_train_epochs=1.15,
         logging_steps=10,
         gradient_accumulation_steps=4,
         save_strategy="steps",
@@ -141,9 +141,9 @@ if __name__ == "__main__":
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
         eval_accumulation_steps=1,
-        eval_steps=100,
-        save_steps=100,
-        warmup_steps=100,
+        eval_steps=10,
+        save_steps=10,
+        warmup_steps=10,
         logging_dir="./logs",
         run_name='_'.join(args.chpt_path.rsplit('/', 2)[1:]),
         fp16=True,

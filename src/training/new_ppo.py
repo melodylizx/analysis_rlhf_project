@@ -86,9 +86,13 @@ config = TRLConfig(
 
 if __name__ == "__main__":
     
+    parser = deepspeed.add_config_arguments(parser)
     parser = argparse.ArgumentParser(description='reward model checkpoint')
     parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
     parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
+    parser.add_argument('--local_rank', type=int, default=0,
+                    help='local rank passed from distributed launcher')
+    
     args = parser.parse_args()
     
     random_seed = 3 

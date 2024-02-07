@@ -20,17 +20,7 @@ from trlx.data.configs import (
 )
 from trlx.models.modeling_ppo import PPOConfig
 
-#REWARD_CHECKPOINT_PATH = "/network/scratch/z/zixuan.li/experiment_reward_model/coverage/checkpoint-100/pytorch_model.bin"
-#REWARD_CHECKPOINT_PATH = "/network/scratch/z/zixuan.li/temp/new_reward_model/pytorch_model.bin"
 
-#if not os.path.exists(REWARD_CHECKPOINT_PATH):
-    #os.makedirs("/network/scratch/z/zixuan.li/temp/new_reward_model", exist_ok=True)
-    #os.system(
-        #f"wget -O {REWARD_CHECKPOINT_PATH} \
-        # https://huggingface.co/CarperAI/openai_summarize_tldr_rm_checkpoint/resolve/main/pytorch_model.bin"
-    #)
-
-#SFT_MODEL_PATH = "/network/scratch/z/zixuan.li/gptj-supervised-summarize-checkpoint"
 SFT_MODEL_PATH = "CarperAI/openai_summarize_tldr_sft"
 
 
@@ -45,10 +35,8 @@ config = TRLConfig(
         eval_interval=200,
         pipeline="PromptPipeline",
         trainer="AcceleratePPOTrainer",
-        #checkpoint_dir="/network/scratch/z/zixuan.li/experiment_model",
     ),
     model=ModelConfig(
-        #model_path="/network/scratch/z/zixuan.li/gptj-supervised-summarize-checkpoint",
         model_path="CarperAI/openai_summarize_tldr_sft",
         num_layers_unfrozen=8,
     ),
@@ -114,7 +102,6 @@ if __name__ == "__main__":
     rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     rw_tokenizer.pad_token = rw_tokenizer.eos_token
     rw_model = GPTRewardModel(SFT_MODEL_PATH)
-    #rw_model.load_state_dict(torch.load(REWARD_CHECKPOINT_PATH))
     rw_model.load_state_dict(torch.load(args.ckpt_path))
     rw_model.half()
     rw_model.eval()

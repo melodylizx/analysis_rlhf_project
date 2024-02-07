@@ -89,31 +89,35 @@ class DataCollatorReward:
 
 set_seed(3)
 args = parse_args()
-model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
-data_path = '../../../data/reliability/perfect/'
+# model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
+model = GPTRewardModel("gpt2",args.hub_path)
+data_path = '../../../data/uncertain_spl/'
 
 max_length = 550
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-# tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+# tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
 tokenizer.pad_token = tokenizer.eos_token
 PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
 
-data_train_pqt = pd.read_parquet(data_path+'train'+'_perfect.parquet')
+data_train_pqt = pd.read_parquet(data_path+'train'+'_uncertain_spl.parquet')
 train_pairs = create_comparison_dataset(data_path, "train")
 train_dataset = PairwiseDataset(train_pairs, tokenizer, max_length=max_length)
 train_dataloader = DataLoader(train_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
-device = torch.device("cuda")
+device = torch.device("cpu")
 model.to(device)
 model.eval()
-model.half()
+# model.half()
 # Evaluate accuracy for the current checkpoint
 correct = 0
 chosen_list = []
 reject_list = []
 uncertain_instances = []
+disagreement_instances = []
 uncertain_pqt = pd.DataFrame(columns=['prompt','chosen','rejected'])
+disagreement_pqt = pd.DataFrame(columns=['prompt','chosen','rejected'])
 with torch.no_grad():
     for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
+
         for x in batch:
             batch[x] = batch[x].to(device)
         outputs = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels'])
@@ -130,9 +134,53 @@ with torch.no_grad():
                         'rejected_score': outputs["rejected_end_scores"][idx].item()
                     }
                 ])
-
-        # pdb.set_trace()
+        mask_disagreement = outputs["chosen_end_scores"] < outputs["rejected_end_scores"]
+        for idx_dis in range(len(mask_disagreement)):
+            if mask_disagreement[idx_dis]:
+                disagreement_pqt = pd.concat([disagreement_pqt,data_train_pqt.iloc[batch['idx'][idx_dis].item(),:].to_frame().transpose()], ignore_index=True)
+                disagreement_instances.extend([
+                    {
+                        'chosen': train_pairs[batch['idx'][idx_dis].item()]['chosen'],  # Replace 'text' with the actual attribute in your dataset
+                        'rejected': train_pairs[batch['idx'][idx_dis].item()]['rejected'],
+                        'chosen_score': outputs["chosen_end_scores"][idx_dis].item(),
+                        'rejected_score': outputs["rejected_end_scores"][idx_dis].item()
+                    }
+                ])
+        pdb.set_trace()
         chosen_list.append(outputs["chosen_end_scores"].cpu())
         reject_list.append(outputs["rejected_end_scores"].cpu())
-    uncertain_pqt.to_parquet('../../../data/reliability/uncertain.parquet',index=False)
-    pd.DataFrame(uncertain_instances).to_parquet('../../../data/reliability/uncertain_scores.parquet',index=False)
+    # uncertain_pqt.to_parquet('../../../data/reliability/uncertain_di_val.parquet',index=False)
+    # pd.DataFrame(uncertain_instances).to_parquet('../../../data/reliability/uncertain_scores_di_val.parquet',index=False)
+    # disagreement_pqt.to_parquet('../../../data/reliability/disagreement_val.parquet',index=False)
+    # pd.DataFrame(disagreement_instances).to_parquet('../../../data/reliability/disagreement_pqt_scores_val.parquet',index=False)
+
+
+train_disagreement = pd.read_parquet('../../data/disagreement_arxiv/train_disagreement.parquet')
+valid_disagreement = pd.read_parquet('../../data/disagreement_arxiv/validation_disagreement.parquet')
+
+
+train_uncertain = pd.read_parquet('../../data/uncertain/train_uncertain.parquet')
+valid_uncertain = pd.read_parquet('../../data/uncertain/validation_uncertain.parquet')
+
+train_disagreement_sc = pd.read_parquet('../../data/out_scores/disagreement_pqt_scores.parquet')
+valid_disagreement_sc = pd.read_parquet('../../data/out_scores/disagreement_pqt_scores_val.parquet')
+
+train_disagreement_pqt = map_pqtsc_pqt(train_disagreement_sc)
+valid_disagreement_pqt = map_pqtsc_pqt(valid_disagreement_sc)
+train_disagreement_pqt.to_parquet('../../data/disagreement/train_disagreement.parquet',index=False)
+valid_disagreement_pqt.to_parquet('../../data/disagreement/validation_disagreement.parquet',index=False)
+
+train_uncertain_sc = pd.read_parquet('../../data/out_scores/uncertain_scores_di.parquet')
+valid_uncertain_sc = pd.read_parquet('../../data/out_scores/uncertain_scores_di_val.parquet')
+train_uncertain_sc['diff'] = np.abs(train_uncertain_sc['chosen_score']-train_uncertain_sc['rejected_score'])
+valid_uncertain_sc['diff'] = np.abs(valid_uncertain_sc['chosen_score']-valid_uncertain_sc['rejected_score'])
+size_sample = int(train_comparisons.shape[0]*20/100)
+size_val = int(valid_comparisons.shape[0]*20/100)
+train_uncertain_sc_sorted = train_uncertain_sc.sort_values(by='diff').iloc[: size_sample]
+valid_uncertain_sc_sorted = valid_uncertain_sc.sort_values(by='diff').iloc[: size_val]
+
+
+uncertain_train = map_pqtsc_pqt(train_uncertain_sc_sorted)
+uncertain_valid = map_pqtsc_pqt(valid_uncertain_sc_sorted)
+uncertain_train.to_parquet('../../data/uncertain_spl/train_uncertain_spl.parquet',index=False)
+uncertain_valid.to_parquet('../../data/uncertain_spl/validation_uncertain_spl.parquet',index=False)

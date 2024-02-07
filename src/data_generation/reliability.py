@@ -3,6 +3,7 @@ import ast
 import random
 import worker_modeling
 from utils import create_directory
+
 # Read data from CSV files
 comp_validation_df = pd.read_pickle('../../data/comp_validation.pkl')
 comp_train_df = pd.read_pickle('../../data/comp_train.pkl')

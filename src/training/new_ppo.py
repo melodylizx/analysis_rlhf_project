@@ -1,14 +1,11 @@
 import os
 from typing import List
 
-import torch
-from datasets import load_dataset
-from reward_model.reward_model import GPTRewardModel
-from tqdm import tqdm
-from transformers import AutoTokenizer
-
 import argparse
 import numpy as np
+import torch
+from datasets import load_dataset
+from transformers import AutoTokenizer
 import trlx
 from trlx.data.configs import (
     ModelConfig,
@@ -19,22 +16,43 @@ from trlx.data.configs import (
     TRLConfig,
 )
 from trlx.models.modeling_ppo import PPOConfig
+from reward_model.reward_model import GPTRewardModel
+from tqdm import tqdm
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='reward model checkpoint')
+parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
+parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
+
+args = parser.parse_args()
 
 SFT_MODEL_PATH = "CarperAI/openai_summarize_tldr_sft"
 
+def find_largest_checkpoint(ckpt_path):
+    checkpoints = [entry  for entry in os.listdir(ckpt_path) if entry.startswith('checkpoint')]
+    if len(checkpoints) == 0:
+        return False
+    else:
+        largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('-')[1]))
+        return os.path.join(ckpt_path, largest_checkpoint)
+
+
+# Now you can safely use args in your script
+last_checkpoint = find_largest_checkpoint(args.save_path)
 
 config = TRLConfig(
     train=TrainConfig(
         seq_length=550,
-        epochs=25,
-        #epochs=50,
+        epochs=20,
         total_steps=100000,
         batch_size=4,
         checkpoint_interval=10000,
-        eval_interval=200,
+        eval_interval=2000000,
         pipeline="PromptPipeline",
         trainer="AcceleratePPOTrainer",
+        checkpoint_dir="/network/scratch/z/zixuan.li/experiment_model",
+        run_name='_'.join(args.ckpt_path.rsplit('/', 4)[1:3]),
+        resume_from_checkpoint=last_checkpoint,
     ),
     model=ModelConfig(
         model_path="CarperAI/openai_summarize_tldr_sft",
@@ -83,17 +101,11 @@ config = TRLConfig(
     ),
 )
 
+# Rest of the script where you use `args` and other defined variables
+
+
 
 if __name__ == "__main__":
-    
-    parser = deepspeed.add_config_arguments(parser)
-    parser = argparse.ArgumentParser(description='reward model checkpoint')
-    parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
-    parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
-    parser.add_argument('--local_rank', type=int, default=0,
-                    help='local rank passed from distributed launcher')
-    
-    args = parser.parse_args()
     
     random_seed = 3 
     torch.manual_seed(random_seed)
@@ -106,6 +118,7 @@ if __name__ == "__main__":
     rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     rw_tokenizer.pad_token = rw_tokenizer.eos_token
     rw_model = GPTRewardModel(SFT_MODEL_PATH)
+    #rw_model.load_state_dict(torch.load(REWARD_CHECKPOINT_PATH))
     rw_model.load_state_dict(torch.load(args.ckpt_path))
     rw_model.half()
     rw_model.eval()
@@ -200,3 +213,4 @@ if __name__ == "__main__":
     )
 
     trainer.save_pretrained(args.save_path)
+    

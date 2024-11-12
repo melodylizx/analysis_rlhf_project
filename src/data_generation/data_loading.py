@@ -71,7 +71,7 @@ test_set.to_pickle('../../data/comp_test.pkl')
 directory_path = '../../data/reliability'
 test_set.loc[:,'worker_label'] = test_set['choice']
 test_set.reset_index(drop=True, inplace=True)
-worker_modeling.to_parquet(test_set, directory_path, "test", "perfect")
+worker_modeling.to_parquet(test_set, directory_path, "test", "100")
 
 #save the confusing cases
 #save the training set

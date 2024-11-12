@@ -1,8 +1,8 @@
 import pandas as pd
 from utils import create_directory
 # Load the dataset
-train_comparisons = pd.read_parquet('../../data/reliability/perfect/train_perfect.parquet')
-valid_comparisons = pd.read_parquet('../../data/reliability/perfect/validation_perfect.parquet')
+train_comparisons = pd.read_pickle('../../data/comp_train.pkl')
+valid_comparisons = pd.read_pickle('../../data/comp_validation.pkl')
 
 # Define the percentages to be used for training and validation
 percentages = [0.01, 0.05, 0.10, 0.20, 0.50, 0.80]

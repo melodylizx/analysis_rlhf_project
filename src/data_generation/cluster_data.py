@@ -12,7 +12,7 @@ model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2', cache_fol
 bertscore = load("bertscore")
 
 comp_train_df = pd.read_pickle('../../data/comp_train.pkl')
-comp_val_df = pd.read_pickle('../../data/comp_val.pkl')
+comp_val_df = pd.read_pickle('../../data/comp_validation.pkl')
 
 def df2sim(comp_train_df):
     columns_text = ['prompt', 'summary_text_0', 'summary_text_1']
@@ -41,7 +41,6 @@ def df2sim(comp_train_df):
 sim_sample = df2sim(comp_train_df)
 sim_sample.loc[:, 'worker_label'] = sim_sample['choice']
 sim_sample_pqt = worker_modeling.to_parquet(sim_sample, directory_path, "train", "cos_sim")
-comp_val_df.loc[:,'prompt'] = comp_val_df['post']
 sim_sample_val = df2sim(comp_val_df)
 sim_sample_val.loc[:, 'worker_label'] = sim_sample_val['choice']
 sim_val_pqt = worker_modeling.to_parquet(sim_sample, directory_path, "validation", "cos_sim")

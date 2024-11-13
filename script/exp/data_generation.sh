@@ -28,4 +28,4 @@ python generate_percent_data.py
 
 
 # cluster data
-python cluster_data.py
+#python cluster_data.py

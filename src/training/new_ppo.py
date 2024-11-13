@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer
+import sys
+sys.path.insert(0, '..')
 import trlx
 from trlx.data.configs import (
     ModelConfig,
@@ -23,6 +25,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description='reward model checkpoint')
 parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
 parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
+parser.add_argument('--hub_path', type=str, default='/network/scratch/i/ines.arous/models-hub/', help='Path to the hub.')
 
 args = parser.parse_args()
 
@@ -117,7 +120,7 @@ if __name__ == "__main__":
     # Load the pre-trained reward model
     rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     rw_tokenizer.pad_token = rw_tokenizer.eos_token
-    rw_model = GPTRewardModel(SFT_MODEL_PATH)
+    rw_model = GPTRewardModel(SFT_MODEL_PATH,args.hub_path)
     #rw_model.load_state_dict(torch.load(REWARD_CHECKPOINT_PATH))
     rw_model.load_state_dict(torch.load(args.ckpt_path))
     rw_model.half()

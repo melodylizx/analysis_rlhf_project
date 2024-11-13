@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --partition=long                     # Ask for unkillable job
+#SBATCH --partition=main                     # Ask for unkillable job
 #SBATCH --gres=gpu:1 --constraint="dgx&ampere"
-#SBATCH --mem=48G                                        # Ask for 10 GB of RAM
+#SBATCH --mem=47G                                        # Ask for 10 GB of RAM
 #SBATCH --time=48:00:00                                   # The job will run for 3 hours
 #SBATCH --output=./logs/random/01_out.txt
 #SBATCH --error=./logs/random/01_error.txt
@@ -22,6 +22,6 @@ mkdir -p ${CHPTPATH}
 mkdir -p ${SAVEPATH}
 
 
-deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0 --seed=3  --data_path="/network/scratch/i/ines.arous/data_rlhf/percent/0.01/"  --chpt_path="${CHPTPATH}"
+deepspeed ./reward_model/train_reward_model_gptj.py --local_rank=0 --seed=3  --data_path="../../data/percent/0.01"  --chpt_path="${CHPTPATH}"
 python ./reward_model/gptj_reward_test.py --ckpt_path="${CHPTPATH}"
 accelerate launch --config_file configs/default_accelerate_config.yaml new_ppo.py --ckpt_path="${CHPTPATH}" --save_path="${SAVEPATH}"

@@ -133,17 +133,17 @@ if __name__ == "__main__":
         os.mkdir(args.chpt_path)
     training_args = TrainingArguments(
         output_dir=args.chpt_path,
-        num_train_epochs=1.15,
+        num_train_epochs=3,
         logging_steps=10,
         gradient_accumulation_steps=4,
         save_strategy="steps",
         evaluation_strategy="steps",
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        per_device_train_batch_size=2,
+        per_device_eval_batch_size=2,
         eval_accumulation_steps=1,
-        eval_steps=10,
-        save_steps=10,
-        warmup_steps=10,
+        eval_steps=200,
+        save_steps=200,
+        warmup_steps=100,
         logging_dir="./logs",
         run_name='_'.join(args.chpt_path.rsplit('/', 2)[1:]),
         fp16=True,
@@ -151,12 +151,19 @@ if __name__ == "__main__":
         learning_rate=1e-5,
         deepspeed='./reward_model/ds_config_gpt_j.json',
         save_total_limit=5,
+        report_to="wandb",
         load_best_model_at_end=True
     )
     # Initialize the reward model from the (supervised) fine-tuned GPT-J
     # double check the model to use
-
-    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
+    print("loading the model")
+    model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft", args.hub_path)
+    # Initialize with DeepSpeed
+    deepspeed.init_distributed()
+    # model_engine, optimizer, _, _ = deepspeed.initialize(
+    #     model=reward_model,
+    #     config='./reward_model/ds_config_gpt_j.json'
+    # )
     # Freeze the first 70% of the hidden layers of the reward model backbone
     layers = model.transformer.h
     num_layers = len(layers)
@@ -185,6 +192,7 @@ if __name__ == "__main__":
         eval_dataset=val_dataset,
         data_collator=data_collator,
     )
+    print("starting to train")
     if last_checkpoint==False:
         trainer.train()
     else:

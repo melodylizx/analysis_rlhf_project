@@ -1,5 +1,6 @@
 {
-  "train_batch_size": "auto",
+  "train_batch_size": 32,
+  "gradient_accumulation_steps": 4,
   "fp16": {
     "enabled": true,
     "min_loss_scale": 1,
@@ -28,12 +29,13 @@
       "eps": 1e-08
     }
   },
+"tensor_parallel_size": 4,
   "scheduler": {
     "type": "WarmupLR",
     "params": {
       "warmup_min_lr": 0,
-      "warmup_max_lr": "auto",
-      "warmup_num_steps": 10
+      "warmup_max_lr": 1e-05,
+      "warmup_num_steps": 100
     }
   }
 }

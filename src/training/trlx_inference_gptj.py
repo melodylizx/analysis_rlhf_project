@@ -104,17 +104,22 @@ def inference(model, tokenizer):
             result = rouge.compute(predictions=pred_list, references=summarize_list)
             print(result)
         count += 1
-    df = pd.DataFrame.from_dict({"pred": pred_list, "truth": summarize_list, "post": post_list})
+
     result = rouge.compute(predictions=pred_list, references=summarize_list)
+    df = pd.DataFrame.from_dict({"pred": pred_list, "truth": summarize_list, "post": post_list,"rouge":result})
     print(result)
     return df
 
+def find_largest_checkpoint(ckpt_path):
+    checkpoints = [entry for entry in os.listdir(ckpt_path) if entry.startswith('checkpoint')]
+    largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_')[1]))
+    return os.path.join(ckpt_path, largest_checkpoint, 'pytorch_model/mp_rank_00_model_states.pt')
 
 if __name__ == "__main__":
     
     
     #model, tokenizer = load_model("/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/ckpts/checkpoint_320/pytorch_model/mp_rank_00_model_states.pt")
-    model, tokenizer = load_model(args.save_path)
+    model, tokenizer = load_model(find_largest_checkpoint(args.save_path))
 
     test_post_list = [sample["prompt"] for sample in load_dataset("CarperAI/openai_summarize_tldr", split="test")][0:3000]
     test_summ_list = [sample["label"] for sample in load_dataset("CarperAI/openai_summarize_tldr", split="test")][0:3000]
@@ -138,16 +143,17 @@ if __name__ == "__main__":
         preds_list.extend(list(predicts))
         truth_list.extend(list(labels))
         post_list.extend(list(posts))
-        #scores_pred.extend(list(reward_fn(data_pred).cpu().numpy()))
-        #scores_truth.extend(list(reward_fn(data_truth).cpu().numpy()))
+        scores_pred.extend(list(reward_fn(data_pred).cpu().numpy()))
+        scores_truth.extend(list(reward_fn(data_truth).cpu().numpy()))
 
     df = pd.DataFrame.from_dict(
         {
             "pred": preds_list,
             "truth": truth_list,
             "post": post_list,
-            #"score_pred": scores_pred,
-            #"score_truth": scores_truth,
+            "rouge": df_result["rouge"],
+            "score_pred": scores_pred,
+            "score_truth": scores_truth,
         }
     )
     #df.to_csv("/network/scratch/z/zixuan.li/result_of_experiments/coverage/ppo_with_reward_scores.csv", index=False)

@@ -154,7 +154,7 @@ def inference_batches(model, tokenizer, test_post_list, test_summ_list, batch_si
     # Compute final rouge scores and create a dataframe
     result = rouge.compute(predictions=pred_list, references=summarize_list)
     print(result)
-    df = pd.DataFrame.from_dict({"pred": pred_list, "truth": summarize_list, "post": post_list})
+    df = pd.DataFrame.from_dict({"pred": pred_list, "truth": summarize_list, "post": post_list, "rouge": result})
     return df
 
 

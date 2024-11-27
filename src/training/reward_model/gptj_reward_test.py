@@ -118,48 +118,48 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     tokenizer.pad_token = tokenizer.eos_token
     PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
-
+    print("loading the model")
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
     max_length = 550
     data_path = '/home/mila/i/ines.arous/rlhf/data/reliability/perfect'
     test_pairs = create_comparison_dataset(data_path, "test")
-    dev_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
-    dev_dataloader = DataLoader(dev_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
+    test_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
+    test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=6, collate_fn=DataCollatorReward())
     # Initialize a list to store accuracy for each checkpoint
     accuracy_records = []
+    best_path = ""
+    best_accuracy = 0
 
     # Iterate through all checkpoints
     for checkpoint_name in os.listdir(args.ckpt_path):
+        print(checkpoint_name)
         checkpoint_path = os.path.join(args.ckpt_path, checkpoint_name)
-        print("first one")
         if os.path.isdir(checkpoint_path):
             model_state_path = os.path.join(checkpoint_path, 'pytorch_model.bin')
 
             # Load the model state dictionary from pytorch_model.bin
             model.load_state_dict(torch.load(model_state_path))
-            model.cuda()
-            model.eval()
-            model.half()
+            model = model.cuda().half().eval()
+
             # Evaluate accuracy for the current checkpoint
             correct = 0
-            chosen_list = []
-            reject_list = []
             with torch.no_grad():
-                for step, batch in tqdm(enumerate(dev_dataloader), total=len(dev_dataloader)):
+                for step, batch in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
                     for x in batch:
                         batch[x] = batch[x].cuda()
                     outputs = model(**batch)
                     correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
-                    chosen_list.append(outputs["chosen_end_scores"].cpu())
-                    reject_list.append(outputs["rejected_end_scores"].cpu())
             # Calculate and store accuracy for the current checkpoint
-            accuracy = correct / len(dev_dataset)
-            accuracy_records.append({"Checkpoint": checkpoint_name, "Accuracy": accuracy})
+            accuracy = correct / len(test_dataset)
+            if accuracy> best_accuracy:
+                best_accuracy = accuracy
+                best_path = checkpoint_path+'/pytorch_model.bin'
+            accuracy_records.append({"Checkpoint": checkpoint_name, "Accuracy": accuracy, "correct": correct, "wrong": len(test_dataset)-correct})
 
     # Save accuracy records to a CSV file
     csv_file_path = os.path.join(args.ckpt_path, "accuracy_records.csv")
-    fields = ["Checkpoint", "Accuracy"]
-
+    fields = ["Checkpoint", "Accuracy", "correct", "wrong"]
+    print("writing in csv...")
     with open(csv_file_path, mode='a', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fields)
 
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         # Write accuracy records
         writer.writerows(accuracy_records)
 
-
+    print(best_path)
 
 
 

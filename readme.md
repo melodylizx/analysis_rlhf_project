@@ -24,3 +24,6 @@ Then, install the rest of the packages using the provided requirements file.
 - Generate the data needed for the experiments:
 ``sbatch script/exp/data_generation.sh``
 
+Successfully installed huggingface-hub-0.26.2 safetensors-0.4.5 tokenizers-0.20.3 transformers-4.46.2
+
+pip install bert-score

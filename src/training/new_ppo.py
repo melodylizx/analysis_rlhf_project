@@ -1,6 +1,5 @@
 import os
 from typing import List
-
 import argparse
 import numpy as np
 import torch
@@ -24,9 +23,10 @@ from tqdm import tqdm
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='reward model checkpoint')
 parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
+parser.add_argument('--perc', type=float, help='Percentage')
 parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
 parser.add_argument('--hub_path', type=str, default='/network/scratch/i/ines.arous/models-hub/', help='Path to the hub.')
-
+parser.add_argument('--run_id', type=str, help='path to run_id in wandb', default='None')
 args = parser.parse_args()
 
 SFT_MODEL_PATH = "CarperAI/openai_summarize_tldr_sft"
@@ -36,7 +36,7 @@ def find_largest_checkpoint(ckpt_path):
     if len(checkpoints) == 0:
         return False
     else:
-        largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('-')[1]))
+        largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_')[1]))
         return os.path.join(ckpt_path, largest_checkpoint)
 
 
@@ -47,14 +47,15 @@ config = TRLConfig(
     train=TrainConfig(
         seq_length=550,
         epochs=20,
-        total_steps=100000,
-        batch_size=4,
-        checkpoint_interval=10000,
-        eval_interval=200,
+        total_steps=int(args.perc*100000/100),
+        batch_size=16 if (args.perc > 1) else 4, #4
+        checkpoint_interval=int(args.perc*100000/1000), #10000
+        eval_interval=int(args.perc*100000/1000), #200
         pipeline="PromptPipeline",
         trainer="AcceleratePPOTrainer",
         checkpoint_dir=args.save_path,
         run_name='_'.join(args.ckpt_path.rsplit('/', 4)[1:3]),
+        run_id= args.run_id,
         resume_from_checkpoint=last_checkpoint,
     ),
     model=ModelConfig(
@@ -127,7 +128,6 @@ if __name__ == "__main__":
     rw_model.eval()
     rw_device = torch.device("cuda:{}".format(1))  # set reward model device
     rw_model.to(rw_device)
-
     def get_scores(samples: List[str]):
         scores_list = []
         batch_size = 2
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     tokenizer.padding_side = "left"
     max_length_input = config.train.seq_length - config.method.gen_kwargs["max_new_tokens"]
 
-    dataset = load_dataset("CarperAI/openai_summarize_tldr")
+    dataset = load_dataset("CarperAI/openai_summarize_tldr",cache_dir=args.hub_path)
 
     # Store data into prompt and label pairs
     train_set = [(sample["prompt"], sample["label"]) for sample in dataset["train"]]

@@ -1,14 +1,16 @@
 import os
-
+import sys
+sys.path.insert(0, '..')
 import evaluate
 import pandas as pd
+import deepspeed
 import torch
 from datasets import load_dataset
 from reward_model.reward_model import GPTRewardModel
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.models.modeling_ppo import AutoModelForCausalLMWithHydraValueHead
-
+from transformers import GenerationConfig
 import argparse
 import numpy as np
 
@@ -31,29 +33,27 @@ def load_model(path):
         #f"wget -O {REWARD_CHECKPOINT_PATH} \
         #https://huggingface.co/CarperAI/openai_summarize_tldr_rm_checkpoint/resolve/main/pytorch_model.bin"
     #)
-parser = argparse.ArgumentParser(description='reward model checkpoint')
-parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
-parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
-parser.add_argument('--csv_path', type=str, help='Path to the csv eval.')
-args = parser.parse_args()
-    
-random_seed = 4
-torch.manual_seed(random_seed)
-torch.cuda.manual_seed(random_seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-np.random.seed(random_seed)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Test")
 
-rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-#rw_tokenizer = AutoTokenizer.from_pretrained("gpt2")
-rw_tokenizer.pad_token = rw_tokenizer.eos_token
-#rw_model =GPTRewardModel("/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/ckpts/checkpoint_320")
-rw_model = GPTRewardModel(args.save_path)
-rw_model.load_state_dict(torch.load(args.ckpt_path))
-rw_model.half()
-rw_model.eval()
-rw_device = torch.device("cuda:{}".format(1))
-rw_model.to(rw_device)
+    # Existing arguments
+    parser.add_argument('--local_rank', type=int, default=0,
+                        help='local rank passed from distributed launcher')
+    parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
+    parser.add_argument('--save_path', type=str, help='Path to the save ppo model.')
+    parser.add_argument('--csv_path', type=str, help='Path to the csv eval.')
+    parser.add_argument("--hub_path",
+                        type=str,
+                        default='/network/scratch/i/ines.arous/models-hub/',
+                        help="path of the checkpoint")
+
+    # DeepSpeed configuration arguments
+    parser = deepspeed.add_config_arguments(parser)
+
+    args = parser.parse_args()
+    return args
+
+
 
 
 def reward_fn(samples):
@@ -116,11 +116,38 @@ def find_largest_checkpoint(ckpt_path):
     return os.path.join(ckpt_path, largest_checkpoint, 'pytorch_model/mp_rank_00_model_states.pt')
 
 if __name__ == "__main__":
-    
-    
-    #model, tokenizer = load_model("/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/ckpts/checkpoint_320/pytorch_model/mp_rank_00_model_states.pt")
-    model, tokenizer = load_model(find_largest_checkpoint(args.save_path))
 
+    deepspeed.init_distributed()
+    args = parse_args()
+
+    random_seed = 4
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(random_seed)
+
+    rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+    # rw_tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    rw_tokenizer.pad_token = rw_tokenizer.eos_token
+    # rw_model =GPTRewardModel("/home/mila/z/zixuan.li/trlx/examples/summarize_rlhf/ckpts/checkpoint_320")
+
+    rw_model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft", args.hub_path)
+
+    model_engine, _, _, _ = deepspeed.initialize(
+        model=rw_model,
+        config_params='./reward_model/ds_config_gpt_j.json'
+    )
+    rw_model.load_state_dict(torch.load(args.ckpt_path))
+    rw_model.half()
+    rw_model.eval()
+    rw_device = torch.device(f"cuda:{args.local_rank}")
+    rw_model.to(rw_device)
+    from transformers import AutoModel
+
+    # model = AutoModel.from_pretrained(args.save_path+"/best_checkpoint/hf_model")
+    # tokenizer = AutoTokenizer.from_pretrained(args.save_path+"/best_checkpoint/pytorch_model/mp_rank_00_model_states.pt")
+    model, tokenizer = load_model(args.save_path+"/best_checkpoint/hf_model")
     test_post_list = [sample["prompt"] for sample in load_dataset("CarperAI/openai_summarize_tldr", split="test")][0:3000]
     test_summ_list = [sample["label"] for sample in load_dataset("CarperAI/openai_summarize_tldr", split="test")][0:3000]
 
@@ -156,7 +183,6 @@ if __name__ == "__main__":
             "score_truth": scores_truth,
         }
     )
-    #df.to_csv("/network/scratch/z/zixuan.li/result_of_experiments/coverage/ppo_with_reward_scores.csv", index=False)
     df.to_csv(args.csv_path, index=False)
     #print("Reward score pred: ", df.score_pred.values.mean())
     #print("Reward score truth: ", df.score_truth.values.mean())

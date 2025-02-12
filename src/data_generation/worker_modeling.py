@@ -3,6 +3,9 @@ import random
 import pandas as pd
 import numpy as np
 import random
+import sys
+# sys.path.insert(0, '../')
+# from utils import create_directory
 from utils import create_directory
 
 def assign_instances(num_comparisons, worker_assignments):

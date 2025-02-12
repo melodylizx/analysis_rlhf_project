@@ -214,6 +214,7 @@ class TrainConfig:
 
     project_name: str = "trlx"
     run_name: Optional[str] = None
+    run_id: Optional[str] = None
     entity_name: Optional[str] = None
     group_name: Optional[str] = None
 

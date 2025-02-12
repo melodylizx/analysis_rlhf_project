@@ -53,16 +53,17 @@ rating_validation_overlap.to_pickle('../../data/overlap_axis_validation.pkl')
 
 #dataset preparation for the comparison sets
 comp_train_df_dup.to_pickle('../../data/comp_train.pkl')
-confusing_train = comp_train_df_dup[(comp_train_df_dup['conf'] > 0) & (comp_train_df_dup['conf'] < 5)]
-confident_train =  comp_train_df_dup[(comp_train_df_dup['conf'] > 0) & (comp_train_df_dup['conf'] > 5)]
+confusing_train = comp_train_df_dup[(comp_train_df_dup['conf'] > 2) & (comp_train_df_dup['conf'] < 8 )]
+confident_train =  comp_train_df_dup[(comp_train_df_dup['conf'] > 7) | (comp_train_df_dup['conf'] < 3)]
+confident_train = confident_train[confident_train['conf']!=0]
 
 #keep 10k of pairs for testing
 validation_set = comp_val_df_dup[:-10000]
 test_set = comp_val_df_dup[-10000:]
 
-confusing_val = validation_set[(validation_set['conf'] > 0) & (validation_set['conf'] < 5)]
-confident_val =  validation_set[(validation_set['conf'] > 0) & (validation_set['conf'] > 5)]
-
+confusing_val = validation_set[(validation_set['conf'] > 2) & (validation_set['conf'] < 8)]
+confident_val =  validation_set[(validation_set['conf'] > 7) | (validation_set['conf'] < 3)]
+confident_val = confident_val[confident_val['conf']!=0]
 
 validation_set.to_pickle('../../data/comp_validation.pkl')
 test_set.to_pickle('../../data/comp_test.pkl')

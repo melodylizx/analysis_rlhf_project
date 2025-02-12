@@ -3,7 +3,7 @@ import os
 import uuid
 from time import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
+import wandb
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -301,6 +301,7 @@ class AcceleratePPOTrainer(AccelerateRLTrainer):
             metadata = gather_dict({k: v for k, v in batch.items() if k != "input_ids" and k != "attention_mask"})
 
             if self.accelerator.is_main_process:
+
                 all_str_samples, all_str_prompts, all_str_outputs = self.decode(
                     gathered_prompts, gathered_samples, gathered_prompt_sizes, append_eos_token=True
                 )

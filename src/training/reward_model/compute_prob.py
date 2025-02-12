@@ -2,6 +2,7 @@ import random
 import os
 import json
 import csv
+import pickle
 import numpy as np
 import torch
 from datasets import load_dataset
@@ -74,6 +75,8 @@ class PairwiseDataset(Dataset):
         self.chosen_attn_masks = []
         self.rejected_input_ids = []
         self.rejected_attn_masks = []
+        self.chosen =[]
+        self.rejected = []
         for pair in pairs:
             chosen, rejected = pair["chosen"], pair["rejected"]
             chosen_encodings_dict = tokenizer(
@@ -95,6 +98,9 @@ class PairwiseDataset(Dataset):
                 self.chosen_attn_masks.append(chosen_encodings_dict["attention_mask"])
                 self.rejected_input_ids.append(rejected_encodings_dict["input_ids"])
                 self.rejected_attn_masks.append(rejected_encodings_dict["attention_mask"])
+                self.chosen.append(chosen)
+                self.rejected.append(rejected)
+
 
     def __len__(self):
         return len(self.chosen_input_ids)
@@ -105,6 +111,9 @@ class PairwiseDataset(Dataset):
             self.chosen_attn_masks[idx],
             self.rejected_input_ids[idx],
             self.rejected_attn_masks[idx],
+            self.chosen[idx],
+            self.rejected[idx],
+            idx
         )
 
 
@@ -114,18 +123,14 @@ class DataCollatorReward:
         batch["input_ids"] = torch.cat([f[0] for f in data] + [f[2] for f in data])
         batch["attention_mask"] = torch.cat([f[1] for f in data] + [f[3] for f in data])
         batch["labels"] = torch.tensor([0] * len(data) + [1] * len(data))
+        batch["chosen"]=[f[4] for f in data]
+        batch["rejected"] = [f[5] for f in data]
+        batch["idx"] = [f[6] for f in data]
         return batch
 
-def find_largest_checkpoint(ckpt_path):
-    checkpoints = [entry for entry in os.listdir(ckpt_path) if entry.startswith('checkpoint')]
-    largest_checkpoint = max(checkpoints, key=lambda x: int(x.split('-')[1]))
-    return os.path.join(ckpt_path, largest_checkpoint, 'trainer_state.json')
 
-def get_best_checkpoint(json_file_path):
-    with open(json_file_path, 'r') as file:
-        data = json.load(file)
 
-    return data.get('best_model_checkpoint', None)
+
 
 
 
@@ -135,7 +140,6 @@ def parse_args():
     # Existing arguments
     parser.add_argument('--local_rank', type=int, default=0,
                         help='local rank passed from distributed launcher')
-    parser.add_argument('--ckpt_path', type=str, help='Path to the reward model.')
     parser.add_argument("--seed", type=int, default=0,
                         help="random seed")
     parser.add_argument("--hub_path",
@@ -152,17 +156,16 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     set_seed(args.seed)
-    # Save accuracy records to a CSV file
-    csv_file_path = os.path.join(args.ckpt_path, "accuracy_records.csv")
-    fields = ["Checkpoint", "Accuracy", "correct", "wrong"]
 
 
     logger.info("########### loading the tokenizer")
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", cache_dir=args.hub_path)
     tokenizer.pad_token = tokenizer.eos_token
     PAD_ID = tokenizer(tokenizer.pad_token)["input_ids"][0]
+
     logger.info("########### loading the model")
     model = GPTRewardModel("CarperAI/openai_summarize_tldr_sft",args.hub_path)
+
     logger.info("########### initialize deepspeed")
     deepspeed.init_distributed()
     model_engine, _, _, _ = deepspeed.initialize(
@@ -173,63 +176,29 @@ if __name__ == "__main__":
     logger.info("########### loading the dataset")
     max_length = 550
     data_path = '/home/mila/i/ines.arous/rlhf_reproduce/data/reliability/100/'
-    test_pairs = create_comparison_dataset(data_path, "test")
-    test_dataset = PairwiseDataset(test_pairs, tokenizer, max_length=max_length)
-    test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=32, collate_fn=DataCollatorReward())
-    # Initialize a list to store accuracy for each checkpoint
-    accuracy_records = []
-    best_path = ""
-    best_accuracy = 0
+    train_pairs = create_comparison_dataset(data_path, "train")
+    train_dataset = PairwiseDataset(train_pairs, tokenizer, max_length=max_length)
+    train_dataloader = DataLoader(train_dataset, shuffle=False, batch_size=32, collate_fn=DataCollatorReward())
 
     logger.info("done loading the dataset")
-    # Iterate through all checkpoints
-    # Get all checkpoint names
-    all_checkpoints = sorted(os.listdir(args.ckpt_path))
     # Divide checkpoints among GPUs
     rank = torch.distributed.get_rank()
-    if rank ==0:
-        with open(csv_file_path, mode='a', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=fields)
-            # Write the header
-            writer.writeheader()
     world_size = torch.distributed.get_world_size()
-    checkpoints_per_rank = [
-        checkpoint for i, checkpoint in enumerate(all_checkpoints) if i % world_size == rank
-    ]
-    logger.info(f"Rank {rank} is processing checkpoints: {checkpoints_per_rank}")
-    for checkpoint_name in checkpoints_per_rank:
-        logger.info(checkpoint_name)
-        checkpoint_path = os.path.join(args.ckpt_path, checkpoint_name)
-        if os.path.isdir(checkpoint_path):
-            model_state_path = os.path.join(checkpoint_path, 'pytorch_model.bin')
 
-            # Load the model state dictionary from pytorch_model.bin
-            # model.load_state_dict(torch.load(model_state_path))
-            # Load checkpoint
-            logger.info("loading a checkpoint")
-            model.load_state_dict(torch.load(model_state_path))
-            logger.info("doing eval")
-            model_engine.module.eval()
-            # Evaluate accuracy for the current checkpoint
-            correct = 0
-            logger.info("computing accuracy")
-            with torch.no_grad():
-                for step, batch in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                    batch = {key: value.cuda() for key, value in batch.items()}
-                    outputs = model(**batch)
-                    correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
-            accuracy = correct / len(test_dataset)
-            if accuracy> best_accuracy:
-                best_accuracy = accuracy
-                best_path = checkpoint_path+'/pytorch_model.bin'
-            accuracy_records.append({"Checkpoint": checkpoint_name, "Accuracy": accuracy.cpu().item(), "correct": correct.cpu().item(), "wrong": len(test_dataset)-correct.cpu().item()})
-
-
-    with open(csv_file_path, mode='a', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fields)
-        # Write accuracy records
-        writer.writerows(accuracy_records)
-    time.sleep(60)
-    all_results = pd.read_csv(csv_file_path)
-    best_acc = all_results['Accuracy'].idxmax()
-    print(args.ckpt_path+'/'+all_results.iloc[best_acc,0]+'/pytorch_model.bin')
+    logger.info("doing eval")
+    model_engine.module.eval()
+    # Evaluate accuracy for the current checkpoint
+    correct = 0
+    logger.info("computing accuracy")
+    all_outputs = []
+    with torch.no_grad():
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
+            ids = batch.pop('idx')
+            chosen = batch.pop('chosen')
+            rejected = batch.pop('rejected')
+            batch = {key: value.cuda() for key, value in batch.items()}
+            outputs = model(**batch)
+            correct += sum(outputs["chosen_end_scores"] > outputs["rejected_end_scores"])
+            all_outputs.append([ids,chosen,rejected,outputs])
+    output_df = pd.DataFrame(all_outputs, columns=['id', 'chosen', 'rejected','output'])
+    output_df.to_pickle('/home/mila/i/ines.arous/rlhf_reproduce/data/outputs.pkl')

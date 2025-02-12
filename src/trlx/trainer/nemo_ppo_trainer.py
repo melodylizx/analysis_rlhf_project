@@ -337,6 +337,7 @@ class NeMoPPOTrainer(BaseRLTrainer):
                 config=OmegaConf.to_container(self.megatron_cfg, resolve=True),
             )
 
+
         # Init DDP
         def dummy():
             return

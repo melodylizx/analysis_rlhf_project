@@ -14,6 +14,7 @@ from ray.air import session
 from rich.console import Console
 from rich.table import Table
 from transformers import AutoTokenizer
+import wandb
 
 import trlx.utils.logging as logging
 from trlx.data.configs import TRLConfig
@@ -89,29 +90,58 @@ class AccelerateRLTrainer(BaseRLTrainer):
         branch = get_git_tag()[0]
 
         run_name = self.config.train.run_name
+        run_id = self.config.train.run_id
         if not run_name:
             run_name = "/".join([script_name, model_name, num_gpus]) + f":{branch}"
 
         if self.accelerator.is_main_process:
             config_dict = self.config.to_dict()
+
             dist_config = get_distributed_config(self.accelerator)
             config_dict["distributed"] = dist_config
             init_trackers_kwargs = {}
 
             if config.train.tracker == "wandb":
-                init_trackers_kwargs["wandb"] = {
-                    "name": run_name,
-                    "entity": self.config.train.entity_name,
-                    "group": self.config.train.group_name,
-                    "tags": self.config.train.tags + ["/".join(get_git_tag())],
-                    "mode": "disabled" if os.environ.get("debug", False) else "online",
-                }
+                if run_id == None:
+                    init_trackers_kwargs["wandb"] = {
+                        "name": run_name,
+                        "entity": self.config.train.entity_name,
+                        "group": self.config.train.group_name,
+                        "tags": self.config.train.tags + ["/".join(get_git_tag())],
+                        "mode": "disabled" if os.environ.get("debug", False) else "online",
+                    }
+                else:
+                    init_trackers_kwargs["wandb"] = {
+                        "name": run_name,
+                        "id": run_id,
+                        "resume": "allow",
+                        "allow_val_change": True,
+                        "entity": self.config.train.entity_name,
+                        "group": self.config.train.group_name,
+                        "tags": self.config.train.tags + ["/".join(get_git_tag())],
+                        "mode": "disabled" if os.environ.get("debug", False) else "online",
+                    }
 
+                    wandb.init(
+                        project=self.config.train.project_name,
+                        name=run_name,
+                        id=run_id,
+                        resume="allow",
+                        entity=self.config.train.entity_name,
+                        group=self.config.train.group_name,
+                        tags=self.config.train.tags + ["/".join(get_git_tag())],
+                        mode="disabled" if os.environ.get("debug", False) else "online",
+                    )
+                    # Update config with allow_val_change
+                    wandb.config.update(config_dict, allow_val_change=True)
                 self.accelerator.init_trackers(
                     project_name=self.config.train.project_name,
                     config=config_dict,
                     init_kwargs=init_trackers_kwargs,
                 )
+
+
+
             elif config.train.tracker == "tensorboard":
                 # flatten config for tensorboard, split list in hparams into flatten config
                 if config_dict["model"].get("peft_config", None):  # tensorboard does not support peft config type
